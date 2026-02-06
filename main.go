@@ -10,6 +10,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	_ "modernc.org/sqlite" // Import the driver
 )
 
 //go:embed all:frontend/dist
@@ -19,7 +20,7 @@ var db *sql.DB
 
 func initDB() {
 	var err error
-	db, err = sql.Open("sqlite3", "map_data.mbtiles")
+	db, err = sql.Open("sqlite", "map_data.mbtiles")
 	if err != nil {
 		log.Fatal("Failed to open database:", err)
 	}
