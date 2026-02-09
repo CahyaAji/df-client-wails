@@ -67,7 +67,7 @@ func lat2tile(lat float64, zoom int) int {
 
 // --- MAIN DOWNLOAD FUNCTION ---
 // Called from Svelte: DownloadRegion(12, 14, -7.0, -7.5, 110.5, 110.0)
-func (a *App) DownloadRegion(mode string, minZ, maxZ int, north, south, east, west float64) string {
+func (a *App) DownloadRegion(mode string, minZ, maxZ int, north, south, east, west float64) Bookmark {
 
 	// Limit concurrent downloads to avoid DB lock/race
 	const maxConcurrent = 4
@@ -76,7 +76,20 @@ func (a *App) DownloadRegion(mode string, minZ, maxZ int, north, south, east, we
 	// Save bookmark for this download (center coordinate)
 	centerLat := (north + south) / 2.0
 	centerLng := (east + west) / 2.0
-	_, _ = db.Exec("INSERT INTO bookmarks (style, min_zoom, max_zoom, north, south, east, west, center_lat, center_lng) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", mode, minZ, maxZ, north, south, east, west, centerLat, centerLng)
+	res, _ := db.Exec("INSERT INTO bookmarks (style, min_zoom, max_zoom, north, south, east, west, center_lat, center_lng) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", mode, minZ, maxZ, north, south, east, west, centerLat, centerLng)
+	bookmarkID, _ := res.LastInsertId()
+	bookmark := Bookmark{
+		ID:        int(bookmarkID),
+		Style:     mode,
+		MinZoom:   minZ,
+		MaxZoom:   maxZ,
+		North:     north,
+		South:     south,
+		East:      east,
+		West:      west,
+		CenterLat: centerLat,
+		CenterLng: centerLng,
+	}
 
 	go func() {
 		apiKey := "fB2eDjoDg2nlel5Kw6ym"
@@ -128,5 +141,5 @@ func (a *App) DownloadRegion(mode string, minZ, maxZ int, north, south, east, we
 		}
 		fmt.Println("Download Complete!")
 	}()
-	return "Download Started in Background..."
+	return bookmark
 }
