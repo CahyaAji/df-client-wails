@@ -5,12 +5,14 @@ import (
 	"embed"
 	"log"
 	"net/http"
+	"os"            // Added
+	"path/filepath" // Added
 	"strings"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
-	_ "modernc.org/sqlite" // Import the driver
+	_ "modernc.org/sqlite"
 )
 
 //go:embed all:frontend/dist
@@ -19,38 +21,49 @@ var assets embed.FS
 var db *sql.DB
 
 func initDB() {
-	var err error
-	db, err = sql.Open("sqlite", "map_data.mbtiles")
+	// 1. Get the path to the current executable
+	ex, err := os.Executable()
+	if err != nil {
+		log.Fatal("Could not get executable path:", err)
+	}
+
+	// 2. Resolve the directory of the executable
+	// Inside a .app, this will be YourApp.app/Contents/MacOS/
+	exPath := filepath.Dir(ex)
+	dbPath := filepath.Join(exPath, "map_data.mbtiles")
+
+	// 3. Open the database using the absolute path
+	// We use the "file:" prefix for modernc.org/sqlite to ensure path handling is robust
+	db, err = sql.Open("sqlite", dbPath+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
 	if err != nil {
 		log.Fatal("Failed to open database:", err)
 	}
 
 	query := `
-	CREATE TABLE IF NOT EXISTS tiles (
-		style TEXT, 
-		zoom_level INTEGER, 
-		tile_column INTEGER, 
-		tile_row INTEGER, 
-		tile_data BLOB,
-		PRIMARY KEY (style, zoom_level, tile_column, tile_row)
-	);
-	CREATE TABLE IF NOT EXISTS bookmarks (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		style TEXT,
-		min_zoom INTEGER,
-		max_zoom INTEGER,
-		north REAL,
-		south REAL,
-		east REAL,
-		west REAL,
-		center_lat REAL,
-		center_lng REAL
-	);`
+    CREATE TABLE IF NOT EXISTS tiles (
+        style TEXT, 
+        zoom_level INTEGER, 
+        tile_column INTEGER, 
+        tile_row INTEGER, 
+        tile_data BLOB,
+        PRIMARY KEY (style, zoom_level, tile_column, tile_row)
+    );
+    CREATE TABLE IF NOT EXISTS bookmarks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        style TEXT,
+        min_zoom INTEGER,
+        max_zoom INTEGER,
+        north REAL,
+        south REAL,
+        east REAL,
+        west REAL,
+        center_lat REAL,
+        center_lng REAL
+    );`
 	_, err = db.Exec(query)
 	if err != nil {
 		log.Fatal("Failed to create table:", err)
 	}
-
 }
 
 func main() {
