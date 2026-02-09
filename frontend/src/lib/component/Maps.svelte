@@ -129,7 +129,7 @@
 
         try {
             // Call Go Backend with mode as first argument
-            downloadStatus = await DownloadRegion(
+            const newBookmark = await DownloadRegion(
                 currentMode,
                 minZ,
                 maxZ,
@@ -138,6 +138,8 @@
                 east,
                 west,
             );
+            // Add the new bookmark to the list immediately
+            bookmarks = [newBookmark, ...bookmarks];
             setTimeout(() => {
                 isDownloading = false;
                 alert(`Download Finished! Saved to database.`);
@@ -170,18 +172,26 @@
     <div class="controls">
         <div class="btn-group">
             <button
-                class="download-btn"
-                disabled={isDownloading}
-                on:click={handleDownload}
+                class:active={currentMode === "normal"}
+                onclick={() => switchStyle("normal")}>Normal View</button
             >
-                {isDownloading ? "Downloading..." : "Download Area"}
-            </button>
+            <button
+                class:active={currentMode === "hybrid"}
+                onclick={() => switchStyle("hybrid")}>Hybrid View</button
+            >
         </div>
+        <button
+            class="download-btn"
+            disabled={isDownloading}
+            onclick={handleDownload}
+        >
+            {isDownloading ? "Downloading..." : "Download Area"}
+        </button>
     </div>
 
     <div class="bookmark-list">
         {#each bookmarks as b}
-            <button class="bookmark-btn" on:click={() => goToBookmark(b)}>
+            <button class="bookmark-btn" onclick={() => goToBookmark(b)}>
                 {b.style} | Zoom: {b.min_zoom}-{b.max_zoom} | Center: [{b.center_lat.toFixed(
                     4,
                 )}, {b.center_lng.toFixed(4)}]
