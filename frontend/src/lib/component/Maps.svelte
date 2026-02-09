@@ -2,10 +2,42 @@
     import maplibregl from "maplibre-gl";
     import "maplibre-gl/dist/maplibre-gl.css";
     import { onMount, onDestroy } from "svelte";
-    
+
     // Import the Go backend function
     // Make sure you have run 'wails dev' so this file is generated
-    import { DownloadRegion } from "../../../wailsjs/go/main/App";
+    import {
+        DownloadRegion,
+        ListBookmarks,
+    } from "../../../wailsjs/go/main/App";
+    // Bookmarks state
+    let bookmarks: Array<{
+        id: number;
+        style: string;
+        min_zoom: number;
+        max_zoom: number;
+        north: number;
+        south: number;
+        east: number;
+        west: number;
+        center_lat: number;
+        center_lng: number;
+    }> = $state([]);
+
+    async function fetchBookmarks() {
+        try {
+            bookmarks = await ListBookmarks();
+        } catch (e) {
+            console.error("Failed to fetch bookmarks", e);
+        }
+    }
+
+    function goToBookmark(b: (typeof bookmarks)[number]) {
+        if (map) {
+            map.setStyle(getStyle(b.style as "normal" | "hybrid"));
+            map.setCenter([b.center_lng, b.center_lat]);
+            map.setZoom(b.min_zoom);
+        }
+    }
 
     let mapContainer: HTMLElement;
     let map: maplibregl.Map;
@@ -21,9 +53,9 @@
     // We build the Style JSON manually to support both Offline (Go) and Online (MapTiler)
     function getStyle(mode: "normal" | "hybrid") {
         const isHybrid = mode === "hybrid";
-        
+
         // Online Source (MapTiler)
-        const onlineUrl = isHybrid 
+        const onlineUrl = isHybrid
             ? `https://api.maptiler.com/maps/hybrid/{z}/{x}/{y}.jpg?key=${API_KEY}`
             : `https://api.maptiler.com/maps/openstreetmap/{z}/{x}/{y}.jpg?key=${API_KEY}`;
 
@@ -35,28 +67,28 @@
                     type: "raster" as const,
                     tiles: [onlineUrl],
                     tileSize: 256,
-                    attribution: '&copy; MapTiler &copy; OpenStreetMap'
+                    attribution: "&copy; MapTiler &copy; OpenStreetMap",
                 },
                 // 2. Offline Source (Local Go Server)
                 // Wails serves this from your SQLite database
                 "offline-source": {
                     type: "raster" as const,
                     tiles: [`/tiles/${mode}/{z}/{x}/{y}.png`], // e.g., /tiles/normal/12/3/4.png
-                    tileSize: 256
-                }
+                    tileSize: 256,
+                },
             },
             layers: [
                 {
                     id: "background",
                     type: "background" as const,
-                    paint: { "background-color": "#f0f0f0" }
+                    paint: { "background-color": "#f0f0f0" },
                 },
                 // Layer 1: Online (Bottom)
                 {
                     id: "online-layer",
                     type: "raster" as const,
                     source: "online-source",
-                    paint: { "raster-opacity": 1 }
+                    paint: { "raster-opacity": 1 },
                 },
                 // Layer 2: Offline (Top)
                 // If offline tile exists, it covers the online one.
@@ -65,9 +97,9 @@
                     id: "offline-layer",
                     type: "raster" as const,
                     source: "offline-source",
-                    paint: { "raster-opacity": 1 }
-                }
-            ]
+                    paint: { "raster-opacity": 1 },
+                },
+            ],
         };
     }
 
@@ -80,7 +112,7 @@
 
     async function handleDownload() {
         if (!map) return;
-        
+
         isDownloading = true;
         downloadStatus = "Preparing...";
 
@@ -96,17 +128,20 @@
         const maxZ = 14; // Be careful going higher than 14 (file size explodes)
 
         try {
-            // 3. Call Go Backend
-            // We pass 'currentMode' so Go knows which MapTiler URL to download (Satellite or Normal)
-            // You might need to update your Go DownloadRegion signature to accept the 'mode' string
-            downloadStatus = await DownloadRegion(minZ, maxZ, north, south, east, west);
-            
-            // Allow UI to update
+            // Call Go Backend with mode as first argument
+            downloadStatus = await DownloadRegion(
+                currentMode,
+                minZ,
+                maxZ,
+                north,
+                south,
+                east,
+                west,
+            );
             setTimeout(() => {
                 isDownloading = false;
                 alert(`Download Finished! Saved to database.`);
             }, 1000);
-
         } catch (err) {
             console.error(err);
             downloadStatus = "Error occurred";
@@ -121,11 +156,9 @@
             center: [110.44053927286228, -7.777395993083473], // Yogyakarta
             zoom: 14,
         });
-        
         map.addControl(new maplibregl.NavigationControl(), "top-left");
-
-        // Optional: Add scale control
         map.addControl(new maplibregl.ScaleControl(), "bottom-left");
+        fetchBookmarks();
     });
 
     onDestroy(() => {
@@ -136,33 +169,53 @@
 <div class="map-layout">
     <div class="controls">
         <div class="btn-group">
-            <button 
-                class:active={currentMode === "normal"} 
-                onclick={() => switchStyle("normal")}>
-                Road
-            </button>
-            <button 
-                class:active={currentMode === "hybrid"} 
-                onclick={() => switchStyle("hybrid")}>
-                Satellite
-            </button>
-        </div>
-
-        <div class="download-section">
-            <span class="status">{isDownloading ? downloadStatus : ''}</span>
-            <button 
+            <button
                 class="download-btn"
-                disabled={isDownloading} 
-                onclick={handleDownload}>
-                {isDownloading ? 'Downloading...' : 'Download Area'}
+                disabled={isDownloading}
+                on:click={handleDownload}
+            >
+                {isDownloading ? "Downloading..." : "Download Area"}
             </button>
         </div>
     </div>
 
+    <div class="bookmark-list">
+        {#each bookmarks as b}
+            <button class="bookmark-btn" on:click={() => goToBookmark(b)}>
+                {b.style} | Zoom: {b.min_zoom}-{b.max_zoom} | Center: [{b.center_lat.toFixed(
+                    4,
+                )}, {b.center_lng.toFixed(4)}]
+            </button>
+        {/each}
+    </div>
     <div class="map-container" bind:this={mapContainer}></div>
 </div>
 
 <style>
+    .bookmark-list {
+        position: absolute;
+        left: 10px;
+        top: 10px;
+        z-index: 20;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    .bookmark-btn {
+        background: #fffbe6;
+        border: 1px solid #e0c97f;
+        border-radius: 4px;
+        padding: 6px 10px;
+        font-size: 13px;
+        cursor: pointer;
+        text-align: left;
+        transition: background 0.2s;
+    }
+    .bookmark-btn:hover {
+        background: #ffe066;
+    }
     .map-layout {
         height: 100%;
         display: flex;
@@ -193,7 +246,7 @@
     .btn-group {
         background: white;
         border-radius: 4px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         overflow: hidden;
         display: flex;
     }
@@ -207,8 +260,10 @@
         border-right: 1px solid #eee;
     }
 
-    .btn-group button:last-child { border-right: none; }
-    
+    .btn-group button:last-child {
+        border-right: none;
+    }
+
     .btn-group button.active {
         background: #eee;
         font-weight: bold;
@@ -222,7 +277,7 @@
         border-radius: 4px;
         cursor: pointer;
         font-weight: 600;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
 
     .download-btn:disabled {
@@ -231,7 +286,7 @@
     }
 
     .status {
-        background: rgba(0,0,0,0.7);
+        background: rgba(0, 0, 0, 0.7);
         color: white;
         padding: 4px 8px;
         border-radius: 4px;
