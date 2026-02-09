@@ -33,6 +33,18 @@ func initDB() {
 		tile_row INTEGER, 
 		tile_data BLOB,
 		PRIMARY KEY (style, zoom_level, tile_column, tile_row)
+	);
+	CREATE TABLE IF NOT EXISTS bookmarks (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		style TEXT,
+		min_zoom INTEGER,
+		max_zoom INTEGER,
+		north REAL,
+		south REAL,
+		east REAL,
+		west REAL,
+		center_lat REAL,
+		center_lng REAL
 	);`
 	_, err = db.Exec(query)
 	if err != nil {
@@ -69,7 +81,7 @@ func main() {
 			},
 		},
 		OnStartup: app.startup,
-		Bind: []interface{}{
+		Bind: []any{
 			app,
 		},
 	})
