@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@types/mapbox__mapbox-gl-draw": "^1.4.9",
+    "maplibre-gl-draw": "^1.6.9"
+  }
+}
