@@ -50,6 +50,7 @@ func initDB() {
     );
     CREATE TABLE IF NOT EXISTS bookmarks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+		title TEXT DEFAULT '',
         style TEXT,
         min_zoom INTEGER,
         max_zoom INTEGER,
@@ -63,6 +64,13 @@ func initDB() {
 	_, err = db.Exec(query)
 	if err != nil {
 		log.Fatal("Failed to create table:", err)
+	}
+
+	if _, err := db.Exec("ALTER TABLE bookmarks ADD COLUMN title TEXT DEFAULT ''"); err != nil {
+		lower := strings.ToLower(err.Error())
+		if !strings.Contains(lower, "duplicate column name") {
+			log.Fatal("Failed to add title column:", err)
+		}
 	}
 }
 

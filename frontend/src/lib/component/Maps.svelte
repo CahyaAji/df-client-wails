@@ -7,9 +7,11 @@
         DownloadRegion,
         ListBookmarks,
     } from "../../../wailsjs/go/main/App";
+    import { EventsOn } from "../../../wailsjs/runtime/runtime";
     // Bookmarks state
     let bookmarks: Array<{
         id: number;
+        title: string;
         style: string;
         min_zoom: number;
         max_zoom: number;
@@ -47,7 +49,9 @@
     let showDownloadMenu = $state(false);
     let showBookmarkList = $state(false);
     let completionNotice = $state("");
+    let downloadTitle = $state("");
     let noticeTimer: ReturnType<typeof setTimeout> | null = null;
+    let unsubscribeDownloadEvents: (() => void) | null = null;
 
     type Bounds = {
         north: number;
@@ -61,6 +65,13 @@
         top: number;
         width: number;
         height: number;
+    };
+
+    type DownloadEvent = {
+        bookmarkId: number;
+        title?: string;
+        status?: string;
+        message?: string;
     };
 
     let selectMode = $state(false);
@@ -224,6 +235,10 @@
         );
     }
 
+    function titleInputValid() {
+        return downloadTitle.trim().length > 0;
+    }
+
     function handlePointerDown(event: PointerEvent) {
         if (!selectMode || !map || !mapContainer) return;
         event.preventDefault();
@@ -282,13 +297,19 @@
         finalizeSelection();
     }
 
-    async function performDownload(minZ: number, maxZ: number, bounds: Bounds) {
+    async function performDownload(
+        title: string,
+        minZ: number,
+        maxZ: number,
+        bounds: Bounds,
+    ) {
         if (isDownloading) return;
         isDownloading = true;
         downloadStatus = "Preparing...";
         try {
             const newBookmark = await DownloadRegion(
                 currentMode,
+                title,
                 minZ,
                 maxZ,
                 bounds.north,
@@ -296,15 +317,43 @@
                 bounds.east,
                 bounds.west,
             );
-            bookmarks = [newBookmark, ...bookmarks];
+            const currentBookmarks = bookmarks;
+            const safeBookmarks = Array.isArray(currentBookmarks)
+                ? currentBookmarks
+                : [];
+            bookmarks = [newBookmark, ...safeBookmarks];
             isDownloading = false;
-            downloadStatus = "Download complete";
+            downloadStatus = "Download queued";
+            downloadTitle = "";
             cancelSelection();
-            showCompletion("Download finished");
+            const queuedMessage = `${newBookmark.title || "Download"} started`;
+            showCompletion(queuedMessage);
         } catch (err) {
-            console.error(err);
-            downloadStatus = "Error occurred";
+            console.error("Download failed", err);
+            const message =
+                err instanceof Error
+                    ? err.message
+                    : typeof err === "string"
+                      ? err
+                      : "Error occurred";
+            downloadStatus = message;
             isDownloading = false;
+        }
+    }
+
+    function handleDownloadStatusEvent(eventData: DownloadEvent) {
+        if (!eventData) return;
+        const title = eventData.title?.trim() || "Download";
+        if (eventData.status === "complete") {
+            const message = eventData.message || `${title} ready`;
+            downloadStatus = message;
+            showCompletion(message);
+            return;
+        }
+        if (eventData.status === "error") {
+            const message = eventData.message || `${title} failed`;
+            downloadStatus = message;
+            showCompletion(message);
         }
     }
 
@@ -319,9 +368,14 @@
             );
             return;
         }
+        if (!titleInputValid()) {
+            alert("Please provide a title for this download.");
+            return;
+        }
         const minZ = Math.round(Number(customMinZoom));
         const maxZ = Math.round(Number(customMaxZoom));
-        await performDownload(minZ, maxZ, selectionBounds);
+        const title = downloadTitle.trim();
+        await performDownload(title, minZ, maxZ, selectionBounds);
     }
 
     onMount(() => {
@@ -333,6 +387,11 @@
         });
         map.addControl(new maplibregl.NavigationControl(), "top-left");
         map.addControl(new maplibregl.ScaleControl(), "bottom-left");
+        unsubscribeDownloadEvents = EventsOn(
+            "download-status",
+            (...payload) =>
+                handleDownloadStatusEvent((payload?.[0] as DownloadEvent) || null),
+        );
         fetchBookmarks();
     });
 
@@ -341,6 +400,10 @@
             clearTimeout(noticeTimer);
         }
         if (map) map.remove();
+        if (unsubscribeDownloadEvents) {
+            unsubscribeDownloadEvents();
+            unsubscribeDownloadEvents = null;
+        }
     });
 </script>
 
@@ -395,6 +458,15 @@
                         </div>
                     {/if}
                 </div>
+                <label class="title-input">
+                    Title
+                    <input
+                        type="text"
+                        placeholder="e.g. Downtown"
+                        maxlength="80"
+                        bind:value={downloadTitle}
+                    />
+                </label>
                 <div class="zoom-inputs">
                     <label>
                         Min Zoom
@@ -419,7 +491,8 @@
                     class="download-btn secondary"
                     disabled={isDownloading ||
                         !selectionBounds ||
-                        !zoomInputsValid()}
+                        !zoomInputsValid() ||
+                        !titleInputValid()}
                     onclick={handleCustomDownload}
                 >
                     {isDownloading ? "Downloading..." : "Download"}
@@ -435,9 +508,12 @@
         <div class="bookmark-list">
             {#each bookmarks as b}
                 <button class="bookmark-btn" onclick={() => goToBookmark(b)}>
-                    {b.style} | Zoom: {b.min_zoom}-{b.max_zoom} | Center: [{b.center_lat.toFixed(
-                        4,
-                    )}, {b.center_lng.toFixed(4)}]
+                    <span class="bookmark-title">{b.title || "Untitled download"}</span>
+                    <span class="bookmark-meta">
+                        {b.style} | Zoom: {b.min_zoom}-{b.max_zoom} | Center: [{b.center_lat.toFixed(
+                            4,
+                        )}, {b.center_lng.toFixed(4)}]
+                    </span>
                 </button>
             {/each}
         </div>
@@ -482,6 +558,16 @@
         cursor: pointer;
         text-align: left;
         transition: background 0.2s;
+    }
+    .bookmark-title {
+        font-weight: 600;
+        display: block;
+    }
+    .bookmark-meta {
+        font-size: 12px;
+        color: #555;
+        display: block;
+        margin-top: 2px;
     }
     .bookmark-btn:hover {
         background: #ffe066;
@@ -627,6 +713,23 @@
     }
 
     .zoom-inputs input {
+        margin-top: 4px;
+        padding: 6px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 13px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .title-input {
+        display: flex;
+        flex-direction: column;
+        font-size: 12px;
+        color: #555;
+    }
+
+    .title-input input {
         margin-top: 4px;
         padding: 6px;
         border: 1px solid #ccc;

@@ -6,11 +6,16 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"strings"
+	"sync"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // Bookmark struct for frontend
 type Bookmark struct {
 	ID        int     `json:"id"`
+	Title     string  `json:"title"`
 	Style     string  `json:"style"`
 	MinZoom   int     `json:"min_zoom"`
 	MaxZoom   int     `json:"max_zoom"`
@@ -24,7 +29,7 @@ type Bookmark struct {
 
 // ListBookmarks returns all bookmarks
 func (a *App) ListBookmarks() ([]Bookmark, error) {
-	rows, err := db.Query("SELECT id, style, min_zoom, max_zoom, north, south, east, west, center_lat, center_lng FROM bookmarks ORDER BY id DESC")
+	rows, err := db.Query("SELECT id, title, style, min_zoom, max_zoom, north, south, east, west, center_lat, center_lng FROM bookmarks ORDER BY id DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +37,7 @@ func (a *App) ListBookmarks() ([]Bookmark, error) {
 	var bookmarks []Bookmark
 	for rows.Next() {
 		var b Bookmark
-		err := rows.Scan(&b.ID, &b.Style, &b.MinZoom, &b.MaxZoom, &b.North, &b.South, &b.East, &b.West, &b.CenterLat, &b.CenterLng)
+		err := rows.Scan(&b.ID, &b.Title, &b.Style, &b.MinZoom, &b.MaxZoom, &b.North, &b.South, &b.East, &b.West, &b.CenterLat, &b.CenterLng)
 		if err != nil {
 			return nil, err
 		}
@@ -66,20 +71,24 @@ func lat2tile(lat float64, zoom int) int {
 }
 
 // --- MAIN DOWNLOAD FUNCTION ---
-// Called from Svelte: DownloadRegion(12, 14, -7.0, -7.5, 110.5, 110.0)
-func (a *App) DownloadRegion(mode string, minZ, maxZ int, north, south, east, west float64) Bookmark {
+// Called from Svelte: DownloadRegion("Title", 12, 14, -7.0, -7.5, 110.5, 110.0)
+func (a *App) DownloadRegion(mode string, title string, minZ, maxZ int, north, south, east, west float64) Bookmark {
 
 	// Limit concurrent downloads to avoid DB lock/race
 	const maxConcurrent = 4
-	tilesChan := make(chan struct{}, maxConcurrent)
 
 	// Save bookmark for this download (center coordinate)
 	centerLat := (north + south) / 2.0
 	centerLng := (east + west) / 2.0
-	res, _ := db.Exec("INSERT INTO bookmarks (style, min_zoom, max_zoom, north, south, east, west, center_lat, center_lng) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", mode, minZ, maxZ, north, south, east, west, centerLat, centerLng)
+	cleanTitle := strings.TrimSpace(title)
+	if cleanTitle == "" {
+		cleanTitle = fmt.Sprintf("%s download %d-%d", mode, minZ, maxZ)
+	}
+	res, _ := db.Exec("INSERT INTO bookmarks (title, style, min_zoom, max_zoom, north, south, east, west, center_lat, center_lng) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", cleanTitle, mode, minZ, maxZ, north, south, east, west, centerLat, centerLng)
 	bookmarkID, _ := res.LastInsertId()
 	bookmark := Bookmark{
 		ID:        int(bookmarkID),
+		Title:     cleanTitle,
 		Style:     mode,
 		MinZoom:   minZ,
 		MaxZoom:   maxZ,
@@ -91,55 +100,89 @@ func (a *App) DownloadRegion(mode string, minZ, maxZ int, north, south, east, we
 		CenterLng: centerLng,
 	}
 
-	go func() {
+	go func(b Bookmark, style string, minZoom, maxZoom int, n, s, e, w float64) {
+		tilesChan := make(chan struct{}, maxConcurrent)
+		var wg sync.WaitGroup
+		var errMu sync.Mutex
+		var hadError bool
+		var firstErr string
+		recordError := func(msg string) {
+			errMu.Lock()
+			defer errMu.Unlock()
+			if !hadError {
+				hadError = true
+				firstErr = msg
+			}
+		}
+
 		apiKey := "fB2eDjoDg2nlel5Kw6ym"
-		style := mode
 		baseUrl := ""
 		if style == "hybrid" {
 			baseUrl = "https://api.maptiler.com/maps/hybrid/%d/%d/%d.jpg?key=" + apiKey
 		} else {
 			baseUrl = "https://api.maptiler.com/maps/openstreetmap/%d/%d/%d.jpg?key=" + apiKey
 		}
-		for z := minZ; z <= maxZ; z++ {
-			left := long2tile(west, z)
-			right := long2tile(east, z)
-			top := lat2tile(north, z)
-			bottom := lat2tile(south, z)
+		for z := minZoom; z <= maxZoom; z++ {
+			left := long2tile(w, z)
+			right := long2tile(e, z)
+			top := lat2tile(n, z)
+			bottom := lat2tile(s, z)
 			for x := left; x <= right; x++ {
 				for y := top; y <= bottom; y++ {
-					tilesChan <- struct{}{} // acquire
-					go func(style string, z, x, y int, baseUrl string) {
-						defer func() { <-tilesChan }() // release
+					tilesChan <- struct{}{}
+					wg.Add(1)
+					go func(style string, zoomLevel, tileX, tileY int, urlTemplate string) {
+						defer func() {
+							<-tilesChan
+							wg.Done()
+						}()
 						var exists int
-						err := db.QueryRow("SELECT 1 FROM tiles WHERE style=? AND zoom_level=? AND tile_column=? AND tile_row=?", style, z, x, y).Scan(&exists)
+						err := db.QueryRow("SELECT 1 FROM tiles WHERE style=? AND zoom_level=? AND tile_column=? AND tile_row=?", style, zoomLevel, tileX, tileY).Scan(&exists)
 						if err == nil && exists == 1 {
-							return // already downloaded
+							return
 						}
-						url := fmt.Sprintf(baseUrl, z, x, y)
+						url := fmt.Sprintf(urlTemplate, zoomLevel, tileX, tileY)
 						resp, err := http.Get(url)
 						if err != nil {
-							fmt.Println("Network error:", url, err)
+							recordError(fmt.Sprintf("network error: %v", err))
 							return
 						}
 						data, err := io.ReadAll(resp.Body)
 						resp.Body.Close()
 						if err != nil {
-							fmt.Println("Read error:", url, err)
+							recordError(fmt.Sprintf("read error: %v", err))
 							return
 						}
 						if len(data) > 0 {
-							_, err = db.Exec("INSERT INTO tiles (style, zoom_level, tile_column, tile_row, tile_data) VALUES (?, ?, ?, ?, ?)", style, z, x, y, data)
+							_, err = db.Exec("INSERT INTO tiles (style, zoom_level, tile_column, tile_row, tile_data) VALUES (?, ?, ?, ?, ?)", style, zoomLevel, tileX, tileY, data)
 							if err != nil {
-								fmt.Println("Save error:", err)
-							} else {
-								fmt.Printf("Saved %s: %d/%d/%d\n", style, z, x, y)
+								recordError(fmt.Sprintf("save error: %v", err))
+								return
 							}
+							fmt.Printf("Saved %s: %d/%d/%d\n", style, zoomLevel, tileX, tileY)
 						}
 					}(style, z, x, y, baseUrl)
 				}
 			}
 		}
+		wg.Wait()
+		status := "complete"
+		message := fmt.Sprintf("%s ready", b.Title)
+		if hadError {
+			status = "error"
+			if firstErr != "" {
+				message = firstErr
+			} else {
+				message = "Some tiles failed to download"
+			}
+		}
+		runtime.EventsEmit(a.ctx, "download-status", map[string]any{
+			"bookmarkId": b.ID,
+			"title":      b.Title,
+			"status":     status,
+			"message":    message,
+		})
 		fmt.Println("Download Complete!")
-	}()
+	}(bookmark, mode, minZ, maxZ, north, south, east, west)
 	return bookmark
 }
