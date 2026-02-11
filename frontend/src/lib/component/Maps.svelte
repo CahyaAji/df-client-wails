@@ -79,7 +79,10 @@
     };
 
     let selectMode = $state(false);
-    let customMinZoom = $state(12);
+    const MIN_ZOOM_LIMIT = 8;
+    const MAX_ZOOM_LIMIT = 16;
+
+    let customMinZoom = $state(MIN_ZOOM_LIMIT);
     let customMaxZoom = $state(14);
     let selectionPixels: SelectionPixels | null = $state(null);
     let selectionBounds: Bounds | null = $state(null);
@@ -236,8 +239,8 @@
         return (
             Number.isFinite(min) &&
             Number.isFinite(max) &&
-            min >= 1 &&
-            max <= 22 &&
+            min >= MIN_ZOOM_LIMIT &&
+            max <= MAX_ZOOM_LIMIT &&
             min <= max
         );
     }
@@ -247,14 +250,14 @@
     }
 
     function clampZoomValue(value: number) {
-        return clamp(Math.round(value), 1, 22);
+        return clamp(Math.round(value), MIN_ZOOM_LIMIT, MAX_ZOOM_LIMIT);
     }
 
     function syncMinZoomWithCurrent() {
         const rounded = clampZoomValue(currentZoom);
         customMinZoom = rounded;
         if (Number(customMaxZoom) < rounded) {
-            customMaxZoom = rounded;
+            customMaxZoom = clampZoomValue(rounded);
         }
     }
 
@@ -441,8 +444,8 @@
             alert("Please provide a title for this download.");
             return;
         }
-        const minZ = Math.round(Number(customMinZoom));
-        const maxZ = Math.round(Number(customMaxZoom));
+        const minZ = clampZoomValue(Number(customMinZoom));
+        const maxZ = clampZoomValue(Number(customMaxZoom));
         const title = downloadTitle.trim();
         await performDownload(title, minZ, maxZ, selectionBounds);
     }
@@ -557,8 +560,8 @@
                         Min Zoom
                         <input
                             type="number"
-                            min="1"
-                            max="22"
+                            min={MIN_ZOOM_LIMIT}
+                            max={MAX_ZOOM_LIMIT}
                             bind:value={customMinZoom}
                         />
                     </label>
@@ -566,8 +569,8 @@
                         Max Zoom
                         <input
                             type="number"
-                            min="1"
-                            max="22"
+                            min={MIN_ZOOM_LIMIT}
+                            max={MAX_ZOOM_LIMIT}
                             bind:value={customMaxZoom}
                         />
                     </label>
