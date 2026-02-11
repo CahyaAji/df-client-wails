@@ -2,6 +2,7 @@ export namespace main {
 	
 	export class Bookmark {
 	    id: number;
+	    title: string;
 	    style: string;
 	    min_zoom: number;
 	    max_zoom: number;
@@ -19,6 +20,7 @@ export namespace main {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
+	        this.title = source["title"];
 	        this.style = source["style"];
 	        this.min_zoom = source["min_zoom"];
 	        this.max_zoom = source["max_zoom"];
