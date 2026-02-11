@@ -63,7 +63,7 @@ func (a *App) startup(ctx context.Context) {
 }
 
 func long2tile(lon float64, zoom int) int {
-	return int(math.Floor(lon+180.0) / 360.0 * math.Pow(2.0, float64(zoom)))
+	return int(math.Floor(((lon + 180.0) / 360.0) * math.Pow(2.0, float64(zoom))))
 }
 
 func lat2tile(lat float64, zoom int) int {
@@ -185,4 +185,16 @@ func (a *App) DownloadRegion(mode string, title string, minZ, maxZ int, north, s
 		fmt.Println("Download Complete!")
 	}(bookmark, mode, minZ, maxZ, north, south, east, west)
 	return bookmark
+}
+
+// ClearDownloads removes all cached tiles and bookmarks from the database.
+func (a *App) ClearDownloads() error {
+	if _, err := db.Exec("DELETE FROM tiles"); err != nil {
+		return err
+	}
+	if _, err := db.Exec("DELETE FROM bookmarks"); err != nil {
+		return err
+	}
+	_, err := db.Exec("VACUUM")
+	return err
 }

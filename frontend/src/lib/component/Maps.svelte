@@ -4,6 +4,7 @@
     import { onMount, onDestroy } from "svelte";
 
     import {
+        ClearDownloads,
         DownloadRegion,
         ListBookmarks,
     } from "../../../wailsjs/go/main/App";
@@ -52,6 +53,9 @@
     let downloadTitle = $state("");
     let noticeTimer: ReturnType<typeof setTimeout> | null = null;
     let unsubscribeDownloadEvents: (() => void) | null = null;
+    let currentZoom = $state(14);
+    let offlineMode = $state(false);
+    let isClearing = $state(false);
 
     type Bounds = {
         north: number;
@@ -140,7 +144,7 @@
                     id: "offline-layer",
                     type: "raster" as const,
                     source: "offline-source",
-                    paint: { "raster-opacity": 1 },
+                    paint: { "raster-opacity": 0 },
                 },
             ],
         };
@@ -182,9 +186,12 @@
     }
 
     function toggleDownloadMenu() {
-        showDownloadMenu = !showDownloadMenu;
-        if (!showDownloadMenu) {
+        const next = !showDownloadMenu;
+        showDownloadMenu = next;
+        if (!next) {
             cancelSelection();
+        } else {
+            syncMinZoomWithCurrent();
         }
     }
 
@@ -237,6 +244,40 @@
 
     function titleInputValid() {
         return downloadTitle.trim().length > 0;
+    }
+
+    function clampZoomValue(value: number) {
+        return clamp(Math.round(value), 1, 22);
+    }
+
+    function syncMinZoomWithCurrent() {
+        const rounded = clampZoomValue(currentZoom);
+        customMinZoom = rounded;
+        if (Number(customMaxZoom) < rounded) {
+            customMaxZoom = rounded;
+        }
+    }
+
+    function updateCurrentZoom() {
+        if (!map) return;
+        currentZoom = Number(map.getZoom().toFixed(2));
+    }
+
+    function applyOfflinePreference() {
+        if (!map) return;
+        const offlineOpacity = offlineMode ? 1 : 0;
+        const onlineOpacity = offlineMode ? 0 : 1;
+        if (map.getLayer("offline-layer")) {
+            map.setPaintProperty("offline-layer", "raster-opacity", offlineOpacity);
+        }
+        if (map.getLayer("online-layer")) {
+            map.setPaintProperty("online-layer", "raster-opacity", onlineOpacity);
+        }
+    }
+
+    function toggleOfflineMode() {
+        offlineMode = !offlineMode;
+        applyOfflinePreference();
     }
 
     function handlePointerDown(event: PointerEvent) {
@@ -357,6 +398,34 @@
         }
     }
 
+    async function clearAllDownloads() {
+        if (isClearing) return;
+        const confirmed = window.confirm(
+            "Delete all saved maps and bookmarks? This cannot be undone.",
+        );
+        if (!confirmed) return;
+        isClearing = true;
+        downloadStatus = "Clearing downloads...";
+        try {
+            await ClearDownloads();
+            await fetchBookmarks();
+            downloadStatus = "All downloads removed";
+            showCompletion("All downloads removed");
+        } catch (err) {
+            console.error("Clear downloads failed", err);
+            const message =
+                err instanceof Error
+                    ? err.message
+                    : typeof err === "string"
+                      ? err
+                      : "Failed to delete downloads";
+            downloadStatus = message;
+            showCompletion(message);
+        } finally {
+            isClearing = false;
+        }
+    }
+
     async function handleCustomDownload() {
         if (!selectionBounds) {
             alert("Please select an area first.");
@@ -387,6 +456,12 @@
         });
         map.addControl(new maplibregl.NavigationControl(), "top-left");
         map.addControl(new maplibregl.ScaleControl(), "bottom-left");
+        updateCurrentZoom();
+        syncMinZoomWithCurrent();
+        map.on("zoom", updateCurrentZoom);
+        map.on("zoomend", updateCurrentZoom);
+        map.on("styledata", applyOfflinePreference);
+        applyOfflinePreference();
         unsubscribeDownloadEvents = EventsOn(
             "download-status",
             (...payload) =>
@@ -399,7 +474,12 @@
         if (noticeTimer) {
             clearTimeout(noticeTimer);
         }
-        if (map) map.remove();
+        if (map) {
+            map.off("zoom", updateCurrentZoom);
+            map.off("zoomend", updateCurrentZoom);
+            map.off("styledata", applyOfflinePreference);
+            map.remove();
+        }
         if (unsubscribeDownloadEvents) {
             unsubscribeDownloadEvents();
             unsubscribeDownloadEvents = null;
@@ -419,6 +499,7 @@
                 onclick={() => switchStyle("hybrid")}>Hybrid View</button
             >
         </div>
+        <div class="zoom-indicator">Zoom: {currentZoom.toFixed(2)}</div>
         <button
             class="download-btn"
             disabled={isDownloading}
@@ -426,6 +507,10 @@
         >
             {showDownloadMenu ? "Hide Download Menu" : "Download"}
         </button>
+        <label class="mode-toggle" class:offline={offlineMode}>
+            <input type="checkbox" checked={!offlineMode} onchange={toggleOfflineMode} />
+            <span>{offlineMode ? "Offline Maps" : "Online Maps"}</span>
+        </label>
         <button
             class="download-btn outline"
             onclick={() => (showBookmarkList = !showBookmarkList)}
@@ -500,6 +585,13 @@
                 <div class="status-row">
                     <span class="status">{downloadStatus}</span>
                 </div>
+                <button
+                    class="download-btn danger"
+                    disabled={isClearing}
+                    onclick={clearAllDownloads}
+                >
+                    {isClearing ? "Clearing..." : "Delete All Downloads"}
+                </button>
             </div>
         {/if}
     </div>
@@ -599,6 +691,15 @@
         align-items: flex-end;
     }
 
+    .zoom-indicator {
+        background: white;
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 13px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+        font-weight: 600;
+    }
+
     .btn-group {
         background: white;
         border-radius: 4px;
@@ -645,10 +746,45 @@
         background: #28a745;
     }
 
+    .download-btn.danger {
+        background: #dc2626;
+    }
+
+    .download-btn.danger:disabled {
+        background: #fca5a5;
+    }
+
     .download-btn.outline {
         background: white;
         color: #007bff;
         border: 1px solid #007bff;
+    }
+
+    .mode-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 6px 14px;
+        font-weight: 600;
+        cursor: pointer;
+        user-select: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+        color: #14532d;
+        border: 1px solid #7dd3ae;
+        background: #e2f4e9;
+    }
+
+    .mode-toggle input {
+        accent-color: #16a34a;
+        width: 16px;
+        height: 16px;
+    }
+
+    .mode-toggle.offline {
+        background: #f1f5f9;
+        color: #475569;
+        border-color: #cbd5f5;
     }
 
     .download-menu {
