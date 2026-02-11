@@ -612,6 +612,7 @@
     {/if}
     <div
         class="map-container"
+        class:selecting={selectMode}
         bind:this={mapContainer}
         role="application"
         aria-label="Map Region Selection"
@@ -677,6 +678,11 @@
         flex-grow: 1;
         width: 100%;
         height: 100%;
+    }
+
+    .map-container.selecting {
+        touch-action: none;
+        cursor: default;
     }
 
     /* Floating Controls */
