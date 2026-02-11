@@ -3,8 +3,6 @@
     import "maplibre-gl/dist/maplibre-gl.css";
     import { onMount, onDestroy } from "svelte";
 
-    // Import the Go backend function
-    // Make sure you have run 'wails dev' so this file is generated
     import {
         DownloadRegion,
         ListBookmarks,
@@ -46,15 +44,56 @@
     let isDownloading = $state(false);
     let downloadStatus = $state("Ready");
     let currentMode = $state("normal"); // 'normal' or 'hybrid'
+    let showDownloadMenu = $state(false);
+    let showBookmarkList = $state(false);
+    let completionNotice = $state("");
+    let noticeTimer: ReturnType<typeof setTimeout> | null = null;
 
-    // Your API Key
-    const API_KEY = "fB2eDjoDg2nlel5Kw6ym"; // Replace with yours if different
+    type Bounds = {
+        north: number;
+        south: number;
+        east: number;
+        west: number;
+    };
 
-    // We build the Style JSON manually to support both Offline (Go) and Online (MapTiler)
+    type SelectionPixels = {
+        left: number;
+        top: number;
+        width: number;
+        height: number;
+    };
+
+    let selectMode = $state(false);
+    let customMinZoom = $state(12);
+    let customMaxZoom = $state(14);
+    let selectionPixels: SelectionPixels | null = $state(null);
+    let selectionBounds: Bounds | null = $state(null);
+
+    let isDrawingSelection = false;
+    let dragStartPx: { x: number; y: number } | null = null;
+    let dragStartLngLat: maplibregl.LngLat | null = null;
+    let activePointerId: number | null = null;
+
+    const clamp = (value: number, min: number, max: number) =>
+        Math.max(min, Math.min(max, value));
+
+    function normalizeBounds(
+        a: maplibregl.LngLat,
+        b: maplibregl.LngLat,
+    ): Bounds {
+        return {
+            north: Math.max(a.lat, b.lat),
+            south: Math.min(a.lat, b.lat),
+            east: Math.max(a.lng, b.lng),
+            west: Math.min(a.lng, b.lng),
+        };
+    }
+
+    const API_KEY = "fB2eDjoDg2nlel5Kw6ym";
+
     function getStyle(mode: "normal" | "hybrid") {
         const isHybrid = mode === "hybrid";
 
-        // Online Source (MapTiler)
         const onlineUrl = isHybrid
             ? `https://api.maptiler.com/maps/hybrid/{z}/{x}/{y}.jpg?key=${API_KEY}`
             : `https://api.maptiler.com/maps/openstreetmap/{z}/{x}/{y}.jpg?key=${API_KEY}`;
@@ -62,18 +101,15 @@
         return {
             version: 8 as const,
             sources: {
-                // 1. Online Source (Fallback)
                 "online-source": {
                     type: "raster" as const,
                     tiles: [onlineUrl],
                     tileSize: 256,
                     attribution: "&copy; MapTiler &copy; OpenStreetMap",
                 },
-                // 2. Offline Source (Local Go Server)
-                // Wails serves this from your SQLite database
                 "offline-source": {
                     type: "raster" as const,
-                    tiles: [`/tiles/${mode}/{z}/{x}/{y}.png`], // e.g., /tiles/normal/12/3/4.png
+                    tiles: [`/tiles/${mode}/{z}/{x}/{y}.png`],
                     tileSize: 256,
                 },
             },
@@ -83,16 +119,12 @@
                     type: "background" as const,
                     paint: { "background-color": "#f0f0f0" },
                 },
-                // Layer 1: Online (Bottom)
                 {
                     id: "online-layer",
                     type: "raster" as const,
                     source: "online-source",
                     paint: { "raster-opacity": 1 },
                 },
-                // Layer 2: Offline (Top)
-                // If offline tile exists, it covers the online one.
-                // If missing (404), MapLibre sees through to the Online layer.
                 {
                     id: "offline-layer",
                     type: "raster" as const,
@@ -110,45 +142,186 @@
         }
     }
 
-    async function handleDownload() {
+    function disableMapInteractions() {
         if (!map) return;
+        map.dragPan.disable();
+        map.doubleClickZoom.disable();
+        map.scrollZoom.disable();
+        map.touchZoomRotate.disable();
+        map.boxZoom.disable();
+    }
 
+    function enableMapInteractions() {
+        if (!map) return;
+        map.dragPan.enable();
+        map.doubleClickZoom.enable();
+        map.scrollZoom.enable();
+        map.touchZoomRotate.enable();
+        map.boxZoom.enable();
+    }
+
+    function resetSelectionDrawing() {
+        isDrawingSelection = false;
+        dragStartPx = null;
+        dragStartLngLat = null;
+        if (mapContainer && activePointerId !== null) {
+            mapContainer.releasePointerCapture(activePointerId);
+        }
+        activePointerId = null;
+    }
+
+    function toggleDownloadMenu() {
+        showDownloadMenu = !showDownloadMenu;
+        if (!showDownloadMenu) {
+            cancelSelection();
+        }
+    }
+
+    function beginSelection() {
+        if (!map) return;
+        selectionPixels = null;
+        selectionBounds = null;
+        isDrawingSelection = false;
+        dragStartPx = null;
+        dragStartLngLat = null;
+        selectMode = true;
+        disableMapInteractions();
+    }
+
+    function cancelSelection() {
+        selectMode = false;
+        selectionPixels = null;
+        selectionBounds = null;
+        resetSelectionDrawing();
+        enableMapInteractions();
+    }
+
+    function finalizeSelection() {
+        selectMode = false;
+        resetSelectionDrawing();
+    }
+
+    function showCompletion(message: string) {
+        completionNotice = message;
+        if (noticeTimer) {
+            clearTimeout(noticeTimer);
+        }
+        noticeTimer = window.setTimeout(() => {
+            completionNotice = "";
+            noticeTimer = null;
+        }, 4000);
+    }
+
+    function zoomInputsValid() {
+        const min = Number(customMinZoom);
+        const max = Number(customMaxZoom);
+        return (
+            Number.isFinite(min) &&
+            Number.isFinite(max) &&
+            min >= 1 &&
+            max <= 22 &&
+            min <= max
+        );
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+        if (!selectMode || !map || !mapContainer) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const rect = mapContainer.getBoundingClientRect();
+        const startX = clamp(event.clientX - rect.left, 0, rect.width);
+        const startY = clamp(event.clientY - rect.top, 0, rect.height);
+        dragStartPx = { x: startX, y: startY };
+        dragStartLngLat = map.unproject([startX, startY]);
+        selectionPixels = { left: startX, top: startY, width: 0, height: 0 };
+        selectionBounds = null;
+        isDrawingSelection = true;
+        activePointerId = event.pointerId;
+        mapContainer.setPointerCapture(activePointerId);
+    }
+
+    function handlePointerMove(event: PointerEvent) {
+        if (
+            !selectMode ||
+            !isDrawingSelection ||
+            !dragStartPx ||
+            !map ||
+            !mapContainer
+        )
+            return;
+        event.preventDefault();
+        event.stopPropagation();
+        const rect = mapContainer.getBoundingClientRect();
+        const currentX = clamp(event.clientX - rect.left, 0, rect.width);
+        const currentY = clamp(event.clientY - rect.top, 0, rect.height);
+        const left = Math.min(dragStartPx.x, currentX);
+        const top = Math.min(dragStartPx.y, currentY);
+        selectionPixels = {
+            left,
+            top,
+            width: Math.abs(currentX - dragStartPx.x),
+            height: Math.abs(currentY - dragStartPx.y),
+        };
+        const currentLngLat = map.unproject([currentX, currentY]);
+        if (dragStartLngLat) {
+            selectionBounds = normalizeBounds(dragStartLngLat, currentLngLat);
+        }
+    }
+
+    function handlePointerUp(event: PointerEvent) {
+        if (!selectMode || !isDrawingSelection) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (
+            selectionPixels &&
+            (selectionPixels.width < 5 || selectionPixels.height < 5)
+        ) {
+            cancelSelection();
+            return;
+        }
+        finalizeSelection();
+    }
+
+    async function performDownload(minZ: number, maxZ: number, bounds: Bounds) {
+        if (isDownloading) return;
         isDownloading = true;
         downloadStatus = "Preparing...";
-
-        // 1. Get Bounds from current view
-        const bounds = map.getBounds();
-        const north = bounds.getNorth();
-        const south = bounds.getSouth();
-        const east = bounds.getEast();
-        const west = bounds.getWest();
-
-        // 2. Set Constraints (Don't let users download the whole world!)
-        const minZ = 12;
-        const maxZ = 14; // Be careful going higher than 14 (file size explodes)
-
         try {
-            // Call Go Backend with mode as first argument
             const newBookmark = await DownloadRegion(
                 currentMode,
                 minZ,
                 maxZ,
-                north,
-                south,
-                east,
-                west,
+                bounds.north,
+                bounds.south,
+                bounds.east,
+                bounds.west,
             );
-            // Add the new bookmark to the list immediately
             bookmarks = [newBookmark, ...bookmarks];
-            setTimeout(() => {
-                isDownloading = false;
-                alert(`Download Finished! Saved to database.`);
-            }, 1000);
+            isDownloading = false;
+            downloadStatus = "Download complete";
+            cancelSelection();
+            showCompletion("Download finished");
         } catch (err) {
             console.error(err);
             downloadStatus = "Error occurred";
             isDownloading = false;
         }
+    }
+
+    async function handleCustomDownload() {
+        if (!selectionBounds) {
+            alert("Please select an area first.");
+            return;
+        }
+        if (!zoomInputsValid()) {
+            alert(
+                "Please provide valid zoom levels between 1 and 22 (min cannot exceed max).",
+            );
+            return;
+        }
+        const minZ = Math.round(Number(customMinZoom));
+        const maxZ = Math.round(Number(customMaxZoom));
+        await performDownload(minZ, maxZ, selectionBounds);
     }
 
     onMount(() => {
@@ -164,6 +337,9 @@
     });
 
     onDestroy(() => {
+        if (noticeTimer) {
+            clearTimeout(noticeTimer);
+        }
         if (map) map.remove();
     });
 </script>
@@ -183,22 +359,106 @@
         <button
             class="download-btn"
             disabled={isDownloading}
-            onclick={handleDownload}
+            onclick={toggleDownloadMenu}
         >
-            {isDownloading ? "Downloading..." : "Download Area"}
+            {showDownloadMenu ? "Hide Download Menu" : "Download"}
         </button>
+        <button
+            class="download-btn outline"
+            onclick={() => (showBookmarkList = !showBookmarkList)}
+        >
+            {showBookmarkList ? "Hide Downloads" : "Show Downloads"}
+        </button>
+        {#if completionNotice}
+            <div class="notice">{completionNotice}</div>
+        {/if}
+        {#if showDownloadMenu}
+            <div class="download-menu">
+                <div class="select-row">
+                    <button
+                        class="select-btn"
+                        class:active={selectMode}
+                        onclick={selectMode || selectionBounds
+                            ? cancelSelection
+                            : beginSelection}
+                    >
+                        {selectMode || selectionBounds
+                            ? "Cancel Selection"
+                            : "Select Area"}
+                    </button>
+                    {#if selectionBounds}
+                        <div class="bounds-info">
+                            N {selectionBounds.north.toFixed(2)} deg | S {selectionBounds.south.toFixed(
+                                2,
+                            )} deg<br />E {selectionBounds.east.toFixed(2)} deg |
+                            W {selectionBounds.west.toFixed(2)} deg
+                        </div>
+                    {/if}
+                </div>
+                <div class="zoom-inputs">
+                    <label>
+                        Min Zoom
+                        <input
+                            type="number"
+                            min="1"
+                            max="22"
+                            bind:value={customMinZoom}
+                        />
+                    </label>
+                    <label>
+                        Max Zoom
+                        <input
+                            type="number"
+                            min="1"
+                            max="22"
+                            bind:value={customMaxZoom}
+                        />
+                    </label>
+                </div>
+                <button
+                    class="download-btn secondary"
+                    disabled={isDownloading ||
+                        !selectionBounds ||
+                        !zoomInputsValid()}
+                    onclick={handleCustomDownload}
+                >
+                    {isDownloading ? "Downloading..." : "Download"}
+                </button>
+                <div class="status-row">
+                    <span class="status">{downloadStatus}</span>
+                </div>
+            </div>
+        {/if}
     </div>
 
-    <div class="bookmark-list">
-        {#each bookmarks as b}
-            <button class="bookmark-btn" onclick={() => goToBookmark(b)}>
-                {b.style} | Zoom: {b.min_zoom}-{b.max_zoom} | Center: [{b.center_lat.toFixed(
-                    4,
-                )}, {b.center_lng.toFixed(4)}]
-            </button>
-        {/each}
+    {#if showBookmarkList}
+        <div class="bookmark-list">
+            {#each bookmarks as b}
+                <button class="bookmark-btn" onclick={() => goToBookmark(b)}>
+                    {b.style} | Zoom: {b.min_zoom}-{b.max_zoom} | Center: [{b.center_lat.toFixed(
+                        4,
+                    )}, {b.center_lng.toFixed(4)}]
+                </button>
+            {/each}
+        </div>
+    {/if}
+    <div
+        class="map-container"
+        bind:this={mapContainer}
+        role="application"
+        aria-label="Map Region Selection"
+        onpointerdown={handlePointerDown}
+        onpointermove={handlePointerMove}
+        onpointerup={handlePointerUp}
+        onpointercancel={handlePointerUp}
+    >
+        {#if selectionPixels}
+            <div
+                class="selection-overlay"
+                style={`left: ${selectionPixels.left}px; top: ${selectionPixels.top}px; width: ${selectionPixels.width}px; height: ${selectionPixels.height}px;`}
+            ></div>
+        {/if}
     </div>
-    <div class="map-container" bind:this={mapContainer}></div>
 </div>
 
 <style>
@@ -295,6 +555,93 @@
         cursor: not-allowed;
     }
 
+    .download-btn.secondary {
+        background: #28a745;
+    }
+
+    .download-btn.outline {
+        background: white;
+        color: #007bff;
+        border: 1px solid #007bff;
+    }
+
+    .download-menu {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 6px;
+        padding: 10px;
+        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        width: 250px;
+    }
+
+    .notice {
+        background: #28a745;
+        color: white;
+        padding: 6px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .select-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .select-btn {
+        border: 1px solid #007bff;
+        background: white;
+        color: #007bff;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .select-btn.active {
+        background: #007bff;
+        color: white;
+    }
+
+    .bounds-info {
+        font-size: 12px;
+        color: #333;
+        text-align: right;
+        line-height: 1.3;
+    }
+
+    .zoom-inputs {
+        display: flex;
+        gap: 10px;
+    }
+
+    .zoom-inputs label {
+        display: flex;
+        flex-direction: column;
+        font-size: 12px;
+        color: #555;
+        flex: 1;
+    }
+
+    .zoom-inputs input {
+        margin-top: 4px;
+        padding: 6px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 13px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .status-row {
+        width: 100%;
+        display: flex;
+        justify-content: flex-end;
+    }
+
     .status {
         background: rgba(0, 0, 0, 0.7);
         color: white;
@@ -304,8 +651,15 @@
         margin-right: 5px;
     }
 
-    .download-section {
-        display: flex;
-        align-items: center;
+    .map-container {
+        position: relative;
+    }
+
+    .selection-overlay {
+        position: absolute;
+        border: 2px dashed #007bff;
+        background: rgba(0, 123, 255, 0.15);
+        pointer-events: none;
+        z-index: 5;
     }
 </style>
