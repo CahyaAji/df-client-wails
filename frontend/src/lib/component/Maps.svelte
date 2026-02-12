@@ -457,8 +457,8 @@
             center: [110.44053927286228, -7.777395993083473], // Yogyakarta
             zoom: 14,
         });
-        map.addControl(new maplibregl.NavigationControl(), "top-left");
         map.addControl(new maplibregl.ScaleControl(), "bottom-left");
+        map.addControl(new maplibregl.NavigationControl(), "bottom-left");
         updateCurrentZoom();
         syncMinZoomWithCurrent();
         map.on("zoom", updateCurrentZoom);
