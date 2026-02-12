@@ -56,6 +56,7 @@
     let currentZoom = $state(14);
     let offlineMode = $state(false);
     let isClearing = $state(false);
+    let downloadLocked = $state(false);
 
     type Bounds = {
         north: number;
@@ -191,10 +192,20 @@
     function toggleDownloadMenu() {
         const next = !showDownloadMenu;
         showDownloadMenu = next;
-        if (!next) {
-            cancelSelection();
-        } else {
+        if (next) {
+            showBookmarkList = false;
             syncMinZoomWithCurrent();
+        } else {
+            cancelSelection();
+        }
+    }
+
+    function toggleBookmarkPanel() {
+        const next = !showBookmarkList;
+        showBookmarkList = next;
+        if (next && showDownloadMenu) {
+            showDownloadMenu = false;
+            cancelSelection();
         }
     }
 
@@ -278,9 +289,17 @@
         }
     }
 
-    function toggleOfflineMode() {
-        offlineMode = !offlineMode;
+    function handleOnlineToggle(event: Event) {
+        const target = event.target as HTMLInputElement | null;
+        if (!target) return;
+        offlineMode = !target.checked;
         applyOfflinePreference();
+    }
+
+    function handleSatelliteToggle(event: Event) {
+        const target = event.target as HTMLInputElement | null;
+        if (!target) return;
+        switchStyle(target.checked ? "hybrid" : "normal");
     }
 
     function handlePointerDown(event: PointerEvent) {
@@ -368,6 +387,7 @@
             bookmarks = [newBookmark, ...safeBookmarks];
             isDownloading = false;
             downloadStatus = "Download queued";
+            downloadLocked = true;
             downloadTitle = "";
             cancelSelection();
             const queuedMessage = `${newBookmark.title || "Download"} started`;
@@ -382,6 +402,7 @@
                       : "Error occurred";
             downloadStatus = message;
             isDownloading = false;
+            downloadLocked = false;
         }
     }
 
@@ -391,12 +412,14 @@
         if (eventData.status === "complete") {
             const message = eventData.message || `${title} ready`;
             downloadStatus = message;
+            downloadLocked = false;
             showCompletion(message);
             return;
         }
         if (eventData.status === "error") {
             const message = eventData.message || `${title} failed`;
             downloadStatus = message;
+            downloadLocked = false;
             showCompletion(message);
         }
     }
@@ -413,6 +436,7 @@
             await ClearDownloads();
             await fetchBookmarks();
             downloadStatus = "All downloads removed";
+            downloadLocked = false;
             showCompletion("All downloads removed");
         } catch (err) {
             console.error("Clear downloads failed", err);
@@ -423,6 +447,7 @@
                       ? err
                       : "Failed to delete downloads";
             downloadStatus = message;
+            downloadLocked = false;
             showCompletion(message);
         } finally {
             isClearing = false;
@@ -492,34 +517,40 @@
 
 <div class="map-layout">
     <div class="controls">
-        <div class="btn-group">
+        <div class="toolbar">
             <button
-                class:active={currentMode === "normal"}
-                onclick={() => switchStyle("normal")}>Normal View</button
+                class="toolbar-btn"
+                onclick={toggleBookmarkPanel}
             >
+                <!-- {showBookmarkList ? "Hide Downloads" : "Show Downloads"} -->
+                 Downloads List
+            </button>
             <button
-                class:active={currentMode === "hybrid"}
-                onclick={() => switchStyle("hybrid")}>Hybrid View</button
+                class="toolbar-btn"
+                class:active-state={showDownloadMenu}
+                disabled={isDownloading}
+                onclick={toggleDownloadMenu}
             >
+                 Download Maps
+            </button>
+            <label class="toolbar-checkbox online" class:active={!offlineMode}>
+                <input
+                    type="checkbox"
+                    checked={!offlineMode}
+                    onchange={handleOnlineToggle}
+                />
+                <span>Online</span>
+            </label>
+            <label class="toolbar-checkbox satellite" class:active={currentMode === "hybrid"}>
+                <input
+                    type="checkbox"
+                    checked={currentMode === "hybrid"}
+                    onchange={handleSatelliteToggle}
+                />
+                <span>Satellite</span>
+            </label>
+            <div class="toolbar-indicator">Zoom {currentZoom.toFixed(2)}</div>
         </div>
-        <div class="zoom-indicator">Zoom: {currentZoom.toFixed(2)}</div>
-        <button
-            class="download-btn"
-            disabled={isDownloading}
-            onclick={toggleDownloadMenu}
-        >
-            {showDownloadMenu ? "Hide Download Menu" : "Download"}
-        </button>
-        <label class="mode-toggle" class:offline={offlineMode}>
-            <input type="checkbox" checked={!offlineMode} onchange={toggleOfflineMode} />
-            <span>{offlineMode ? "Offline Maps" : "Online Maps"}</span>
-        </label>
-        <button
-            class="download-btn outline"
-            onclick={() => (showBookmarkList = !showBookmarkList)}
-        >
-            {showBookmarkList ? "Hide Downloads" : "Show Downloads"}
-        </button>
         {#if completionNotice}
             <div class="notice">{completionNotice}</div>
         {/if}
@@ -534,17 +565,10 @@
                             : beginSelection}
                     >
                         {selectMode || selectionBounds
-                            ? "Cancel Selection"
+                            ? "Cancel Select"
                             : "Select Area"}
                     </button>
-                    {#if selectionBounds}
-                        <div class="bounds-info">
-                            N {selectionBounds.north.toFixed(2)} deg | S {selectionBounds.south.toFixed(
-                                2,
-                            )} deg<br />E {selectionBounds.east.toFixed(2)} deg |
-                            W {selectionBounds.west.toFixed(2)} deg
-                        </div>
-                    {/if}
+                    <div class="status-indicator">{downloadStatus}</div>
                 </div>
                 <label class="title-input">
                     Title
@@ -580,17 +604,15 @@
                     disabled={isDownloading ||
                         !selectionBounds ||
                         !zoomInputsValid() ||
-                        !titleInputValid()}
+                        !titleInputValid() ||
+                        downloadLocked}
                     onclick={handleCustomDownload}
                 >
                     {isDownloading ? "Downloading..." : "Download"}
                 </button>
-                <div class="status-row">
-                    <span class="status">{downloadStatus}</span>
-                </div>
                 <button
                     class="download-btn danger"
-                    disabled={isClearing}
+                    disabled={isClearing || downloadLocked}
                     onclick={clearAllDownloads}
                 >
                     {isClearing ? "Clearing..." : "Delete All Downloads"}
@@ -637,36 +659,46 @@
     .bookmark-list {
         position: absolute;
         left: 10px;
-        top: 10px;
-        z-index: 20;
+        top: 70px;
+        z-index: 5;
         display: flex;
         flex-direction: column;
-        gap: 6px;
-        max-height: 80vh;
+        gap: 10px;
+        max-height: calc(80vh - 80px);
         overflow-y: auto;
+        width: 280px;
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 8px;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
     .bookmark-btn {
-        background: #fffbe6;
-        border: 1px solid #e0c97f;
-        border-radius: 4px;
-        padding: 6px 10px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        padding: 8px 10px;
         font-size: 13px;
         cursor: pointer;
         text-align: left;
-        transition: background 0.2s;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        color: #0f172a;
+        transition: background 0.2s ease, border-color 0.2s ease;
     }
     .bookmark-title {
         font-weight: 600;
-        display: block;
+        font-size: 14px;
+        color: #0f172a;
     }
     .bookmark-meta {
         font-size: 12px;
-        color: #555;
-        display: block;
-        margin-top: 2px;
+        color: #475569;
     }
     .bookmark-btn:hover {
-        background: #ffe066;
+        background: #e0f2fe;
+        border-color: #7dd3fc;
     }
     .map-layout {
         height: 100%;
@@ -692,47 +724,115 @@
     .controls {
         position: absolute;
         top: 10px;
-        right: 10px;
+        left: 10px;
         z-index: 10;
         display: flex;
         flex-direction: column;
-        gap: 10px;
-        align-items: flex-end;
+        gap: 8px;
+        align-items: flex-start;
+        pointer-events: none;
     }
 
-    .zoom-indicator {
-        background: white;
-        border-radius: 4px;
-        padding: 4px 8px;
-        font-size: 13px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-        font-weight: 600;
+    .controls > * {
+        pointer-events: auto;
     }
 
-    .btn-group {
-        background: white;
-        border-radius: 4px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    .toolbar {
+        display: inline-flex;
+        flex-direction: row;
+        align-items: stretch;
+        gap: 0;
+        flex-wrap: nowrap;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 999px;
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(0, 0, 0, 0.1);
         overflow: hidden;
-        display: flex;
     }
 
-    .btn-group button {
+    .toolbar-btn,
+    .toolbar-indicator {
         border: none;
-        background: white;
-        padding: 8px 12px;
-        cursor: pointer;
+        background: transparent;
+        padding: 10px 16px;
         font-size: 14px;
-        border-right: 1px solid #eee;
+        font-weight: 600;
+        height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        cursor: pointer;
+        color: #0f172a;
+        transition: background 0.15s ease, color 0.15s ease;
     }
 
-    .btn-group button:last-child {
-        border-right: none;
+    .toolbar > * + * {
+        border-left: 1px solid rgba(15, 23, 42, 0.1);
     }
 
-    .btn-group button.active {
-        background: #eee;
-        font-weight: bold;
+    .toolbar-btn:hover {
+        background: rgba(15, 23, 42, 0.06);
+    }
+
+    .toolbar-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .toolbar-btn.active-state {
+        background: rgba(37, 99, 235, 0.15);
+        color: #1d4ed8;
+    }
+
+    .toolbar-checkbox {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 16px;
+        font-size: 14px;
+        font-weight: 600;
+        height: 44px;
+        cursor: pointer;
+        color: #0f172a;
+        user-select: none;
+        background: transparent;
+    }
+
+    .toolbar-checkbox input {
+        width: 16px;
+        height: 16px;
+        accent-color: #22c55e;
+        cursor: pointer;
+    }
+
+    .toolbar-checkbox span {
+        pointer-events: none;
+    }
+
+    .toolbar-checkbox.active {
+        color: white;
+    }
+
+    .toolbar-checkbox.online.active {
+        background: #22c55e;
+    }
+
+    .toolbar-checkbox.satellite input {
+        accent-color: #6366f1;
+    }
+
+    .toolbar-checkbox.satellite.active {
+        background: #6366f1;
+    }
+
+    .toolbar-indicator {
+        padding: 0 16px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #1e293b;
+        min-width: 110px;
+        cursor: default;
     }
 
     .download-btn {
@@ -752,7 +852,7 @@
     }
 
     .download-btn.secondary {
-        background: #28a745;
+        background: #22c55e;
     }
 
     .download-btn.danger {
@@ -763,39 +863,6 @@
         background: #fca5a5;
     }
 
-    .download-btn.outline {
-        background: white;
-        color: #007bff;
-        border: 1px solid #007bff;
-    }
-
-    .mode-toggle {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        border-radius: 999px;
-        padding: 6px 14px;
-        font-weight: 600;
-        cursor: pointer;
-        user-select: none;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-        color: #14532d;
-        border: 1px solid #7dd3ae;
-        background: #e2f4e9;
-    }
-
-    .mode-toggle input {
-        accent-color: #16a34a;
-        width: 16px;
-        height: 16px;
-    }
-
-    .mode-toggle.offline {
-        background: #f1f5f9;
-        color: #475569;
-        border-color: #cbd5f5;
-    }
-
     .download-menu {
         background: rgba(255, 255, 255, 0.95);
         border-radius: 6px;
@@ -804,7 +871,7 @@
         display: flex;
         flex-direction: column;
         gap: 10px;
-        width: 250px;
+        width: 200px;
     }
 
     .notice {
@@ -830,33 +897,14 @@
         border-radius: 4px;
         cursor: pointer;
         font-weight: 600;
+        transition: background 0.15s ease;
     }
 
-    .select-btn.active {
+    .select-btn.active,
+    .select-btn:hover {
         background: #007bff;
         color: white;
     }
-
-    .bounds-info {
-        font-size: 12px;
-        color: #333;
-        text-align: right;
-        line-height: 1.3;
-    }
-
-    .zoom-inputs {
-        display: flex;
-        gap: 10px;
-    }
-
-    .zoom-inputs label {
-        display: flex;
-        flex-direction: column;
-        font-size: 12px;
-        color: #555;
-        flex: 1;
-    }
-
     .zoom-inputs input {
         margin-top: 4px;
         padding: 6px;
@@ -884,25 +932,37 @@
         box-sizing: border-box;
     }
 
-    .status-row {
-        width: 100%;
-        display: flex;
-        justify-content: flex-end;
-    }
-
-    .status {
-        background: rgba(0, 0, 0, 0.7);
-        color: white;
-        padding: 4px 8px;
-        border-radius: 4px;
+    .status-indicator {
         font-size: 12px;
-        margin-right: 5px;
+        color: #0f172a;
+        background: rgba(15, 23, 42, 0.08);
+        padding: 2px 4px;
+        border-radius: 999px;
+        min-height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        min-width: 80px;
     }
 
     .map-container {
         position: relative;
     }
 
+        .status-indicator {
+            font-size: 12px;
+            color: #0f172a;
+            background: rgba(15, 23, 42, 0.08);
+            padding: 2px 4px;
+            border-radius: 999px;
+            min-height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            min-width: 80px;
+        }
     .selection-overlay {
         position: absolute;
         border: 2px dashed #007bff;

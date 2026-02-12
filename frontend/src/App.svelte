@@ -2,8 +2,6 @@
   // import logo from './assets/images/logo-universal.png'
   // import {Greet} from '../wailsjs/go/main/App.js'
     import Maps from "./lib/component/Maps.svelte";
-  
-
 </script>
 
 <main>
