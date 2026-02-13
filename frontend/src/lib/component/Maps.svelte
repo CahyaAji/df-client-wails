@@ -108,7 +108,9 @@
         };
     }
 
-    const API_KEY = "fB2eDjoDg2nlel5Kw6ym";
+    // const API_KEY = "fB2eDjoDg2nlel5Kw6ym";
+    const API_KEY = "aUOEn1bA48mz3xc3pL4N";
+    //! buat key bisa diganti di runtime nanti
 
     function getStyle(mode: "normal" | "hybrid") {
         const isHybrid = mode === "hybrid";
@@ -659,11 +661,11 @@
     .bookmark-list {
         position: absolute;
         left: 10px;
-        top: 70px;
+        top: 46px;
         z-index: 5;
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 8px;
         max-height: calc(80vh - 80px);
         overflow-y: auto;
         width: 280px;
@@ -723,8 +725,8 @@
     /* Floating Controls */
     .controls {
         position: absolute;
-        top: 10px;
-        left: 10px;
+        top: 6px;
+        left: 8px;
         z-index: 10;
         display: flex;
         flex-direction: column;
@@ -754,10 +756,7 @@
     .toolbar-indicator {
         border: none;
         background: transparent;
-        padding: 10px 16px;
-        font-size: 14px;
-        font-weight: 600;
-        height: 44px;
+        padding: 8px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -788,11 +787,8 @@
     .toolbar-checkbox {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        padding: 0 16px;
-        font-size: 14px;
-        font-weight: 600;
-        height: 44px;
+        gap: 4px;
+        padding: 0 8px;
         cursor: pointer;
         color: #0f172a;
         user-select: none;
@@ -829,7 +825,6 @@
     .toolbar-indicator {
         padding: 0 16px;
         font-size: 13px;
-        font-weight: 600;
         color: #1e293b;
         min-width: 110px;
         cursor: default;
