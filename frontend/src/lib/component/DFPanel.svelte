@@ -2,29 +2,52 @@
     import { API_URL } from "../utils/api_handler.js";
     import RelativePlot from "./RelativePlot.svelte";
     import ControlPanel from "./ControlPanel.svelte";
+
+    let isStatusOpen = $state(true);
+    let isPlotOpen = $state(true);
+    let isSettingsOpen = $state(true);
 </script>
 
 <div class="container">
-    <div>
+    <div style="width: 100%;">
         <div class="title">
             <div style="margin: 6px 4px;">Status</div>
-            <button>︽︾</button>
+            <button onclick={() => isStatusOpen = !isStatusOpen}>
+                    {isStatusOpen ? "︽" : "︾"}
+            </button>
         </div>
+        {#if isStatusOpen}
         <iframe
             class="webview"
             src={`${API_URL}/config`}
             title="Example website"
-            style="width: 100%; height: 100%; border: none; overflow-x: hidden; background-color: rgba(4, 61, 15, 0.2);"
+            style="width: 290px; margin: auto; height: 100%; border: none; overflow-x: hidden; background-color: rgba(4, 61, 15, 0.2);"
         ></iframe>
+        {/if}
     </div>
-    <div>
+    <div style="width: 100%;">
         <div class="title">
-            <div>Plot</div>
-            <button>︽︾</button>
+             <div style="margin: 6px 4px;">Plot</div>
+            <button onclick={() => isPlotOpen = !isPlotOpen}>
+                {isPlotOpen ? "︽" : "︾"}
+            </button>
         </div>
+        {#if isPlotOpen}
         <RelativePlot />
+        {/if}
     </div>
-    <ControlPanel />
+    <div style="width: 100%;">
+        <div class="title">
+            <div style="margin: 6px 4px;">Settings</div>
+            <button onclick={() => isSettingsOpen = !isSettingsOpen}>
+                {isSettingsOpen ? "︽" : "︾"}
+            </button>
+        </div>
+        {#if isSettingsOpen}
+        <ControlPanel />
+        {/if}
+    </div>
+    
 </div>
 
 <style>

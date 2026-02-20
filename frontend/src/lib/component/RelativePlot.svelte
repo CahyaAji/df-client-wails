@@ -3,6 +3,7 @@
 <style>
     .container {
         display: flex;
+        margin: auto;
         width: 230px;
         height: 230px;
         background-image: url("/src/assets/relative_circle.png");
