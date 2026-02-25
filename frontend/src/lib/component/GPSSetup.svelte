@@ -1,9 +1,13 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
-    import { locationStore } from '../store/locationStore.svelte.js';
+    import { locationStore } from "../store/locationStore.svelte.js";
+    import * as utm from "utm";
 
     let lat = $state(locationStore.data.latitude);
     let lng = $state(locationStore.data.longitude);
+    let utmZone = $state("");
+    let utmEasting = $state("");
+    let utmNorthing = $state("");
+    let utmCO = $state("");
 
     function readGPS() {
         locationStore.fetchGPS();
@@ -23,6 +27,20 @@
         locationStore.set(lat, lng);
     }
 
+    function convertUTM() {
+        if (lat === null || lng === null) {
+            return;
+        }
+        const utmResult = utm.fromLatLon(lat, lng);
+        utmZone = utmResult.zoneNum + utmResult.zoneLetter;
+        utmEasting = utmResult.easting.toFixed(2);
+        utmNorthing = utmResult.northing.toFixed(2);
+
+        const strCOE = Math.round(utmResult.easting).toString();
+        const strCON = Math.round(utmResult.northing).toString();
+
+        utmCO = `${strCOE.substring(1, strCOE.length - 1)}, ${strCON.substring(2, strCON.length - 1)}`;
+    }
 </script>
 
 <div class="container">
@@ -40,26 +58,26 @@
         <div class="utm-content">
             <div class="utm-field">
                 <div>Zone :</div>
-                <input type="text" />
+                <input type="text" bind:value={utmZone} />
             </div>
             <div class="utm-field">
                 <div>Northing :</div>
-                <input type="text" />
+                <input type="text" bind:value={utmNorthing} />
             </div>
             <div class="utm-field">
                 <div>Easting :</div>
-                <input type="text" />
+                <input type="text" bind:value={utmEasting} />
             </div>
             <div class="utm-field">
                 <div>CO :</div>
-                <input type="text" />
+                <input type="text" bind:value={utmCO} />
             </div>
         </div>
     </div>
     <div class="button-panel">
         <button onclick={readGPS}>Read</button>
         <button onclick={setGPS}>Set</button>
-        <button>Convert UTM</button>
+        <button onclick={convertUTM}>Convert UTM</button>
     </div>
 </div>
 
