@@ -1,8 +1,8 @@
 <script lang="ts">
-//   import CompassSetup from "./CompassSetup.svelte";
-//   import FreqGainSetup from "./FreqGainSetup.svelte";
-//   import GPSSetup from "./GPSSetup.svelte";
-//   import Option from "./Option.svelte";
+  import CompassSetup from "./CompassSetup.svelte";
+  import FreqGainSetup from "./FreqGainSetup.svelte";
+  import GPSSetup from "./GPSSetup.svelte";
+  import Option from "./Option.svelte";
 
   let activeTab = "frequency";
 
@@ -34,22 +34,22 @@
     >
   </div>
   {#if activeTab === "frequency"}
-    <!-- <FreqGainSetup /> -->
+    <FreqGainSetup />
   {:else if activeTab === "compass"}
-    <!-- <CompassSetup /> -->
+    <CompassSetup />
   {:else if activeTab === "gps"}
-    <!-- <GPSSetup /> -->
+    <GPSSetup />
   {:else if activeTab === "option"}
-    <!-- <Option /> -->
+    <Option />
   {/if}
 </div>
 
 <style>
   .container {
+    margin-top: 4px;
     display: flex;
     flex-direction: column;
     background-color: rgba(75, 83, 32, 0.6);
-    border-radius: 10px;
     overflow: auto;
   }
   .navigation {

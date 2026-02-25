@@ -64,5 +64,9 @@
             <key>NSAllowsLocalNetworking</key>
             <true/>
         </dict>
+        <key>NSLocationWhenInUseUsageDescription</key>
+        <string>This app requires access to your location for GPS functionality.</string>
+        <key>NSLocationUsageDescription</key>
+        <string>This app requires access to your location for GPS functionality.</string>
     </dict>
 </plist>

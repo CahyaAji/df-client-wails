@@ -46,7 +46,7 @@
     // Svelte 5 State
     let isDownloading = $state(false);
     let downloadStatus = $state("Ready");
-    let currentMode = $state("normal"); // 'normal' or 'hybrid'
+    let currentMode = $state<"normal" | "hybrid">("normal"); // 'normal' or 'hybrid'
     let showDownloadMenu = $state(false);
     let showBookmarkList = $state(false);
     let completionNotice = $state("");
@@ -284,10 +284,18 @@
         const offlineOpacity = offlineMode ? 1 : 0;
         const onlineOpacity = offlineMode ? 0 : 1;
         if (map.getLayer("offline-layer")) {
-            map.setPaintProperty("offline-layer", "raster-opacity", offlineOpacity);
+            map.setPaintProperty(
+                "offline-layer",
+                "raster-opacity",
+                offlineOpacity,
+            );
         }
         if (map.getLayer("online-layer")) {
-            map.setPaintProperty("online-layer", "raster-opacity", onlineOpacity);
+            map.setPaintProperty(
+                "online-layer",
+                "raster-opacity",
+                onlineOpacity,
+            );
         }
     }
 
@@ -480,7 +488,7 @@
     onMount(() => {
         map = new maplibregl.Map({
             container: mapContainer,
-            style: getStyle("normal"),
+            style: getStyle(currentMode),
             center: [110.44053927286228, -7.777395993083473], // Yogyakarta
             zoom: 14,
         });
@@ -492,10 +500,8 @@
         map.on("zoomend", updateCurrentZoom);
         map.on("styledata", applyOfflinePreference);
         applyOfflinePreference();
-        unsubscribeDownloadEvents = EventsOn(
-            "download-status",
-            (...payload) =>
-                handleDownloadStatusEvent((payload?.[0] as DownloadEvent) || null),
+        unsubscribeDownloadEvents = EventsOn("download-status", (...payload) =>
+            handleDownloadStatusEvent((payload?.[0] as DownloadEvent) || null),
         );
         fetchBookmarks();
     });
@@ -520,12 +526,9 @@
 <div class="map-layout">
     <div class="controls">
         <div class="toolbar">
-            <button
-                class="toolbar-btn"
-                onclick={toggleBookmarkPanel}
-            >
+            <button class="toolbar-btn" onclick={toggleBookmarkPanel}>
                 <!-- {showBookmarkList ? "Hide Downloads" : "Show Downloads"} -->
-                 Downloads List
+                Downloads List
             </button>
             <button
                 class="toolbar-btn"
@@ -533,7 +536,7 @@
                 disabled={isDownloading}
                 onclick={toggleDownloadMenu}
             >
-                 Download Maps
+                Download Maps
             </button>
             <label class="toolbar-checkbox online" class:active={!offlineMode}>
                 <input
@@ -543,7 +546,10 @@
                 />
                 <span>Online</span>
             </label>
-            <label class="toolbar-checkbox satellite" class:active={currentMode === "hybrid"}>
+            <label
+                class="toolbar-checkbox satellite"
+                class:active={currentMode === "hybrid"}
+            >
                 <input
                     type="checkbox"
                     checked={currentMode === "hybrid"}
@@ -627,7 +633,9 @@
         <div class="bookmark-list">
             {#each bookmarks as b}
                 <button class="bookmark-btn" onclick={() => goToBookmark(b)}>
-                    <span class="bookmark-title">{b.title || "Untitled download"}</span>
+                    <span class="bookmark-title"
+                        >{b.title || "Untitled download"}</span
+                    >
                     <span class="bookmark-meta">
                         {b.style} | Zoom: {b.min_zoom}-{b.max_zoom} | Center: [{b.center_lat.toFixed(
                             4,
@@ -687,7 +695,9 @@
         flex-direction: column;
         gap: 2px;
         color: #0f172a;
-        transition: background 0.2s ease, border-color 0.2s ease;
+        transition:
+            background 0.2s ease,
+            border-color 0.2s ease;
     }
     .bookmark-title {
         font-weight: 600;
@@ -763,7 +773,9 @@
         gap: 6px;
         cursor: pointer;
         color: #0f172a;
-        transition: background 0.15s ease, color 0.15s ease;
+        transition:
+            background 0.15s ease,
+            color 0.15s ease;
     }
 
     .toolbar > * + * {
@@ -945,19 +957,19 @@
         position: relative;
     }
 
-        .status-indicator {
-            font-size: 12px;
-            color: #0f172a;
-            background: rgba(15, 23, 42, 0.08);
-            padding: 2px 4px;
-            border-radius: 999px;
-            min-height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            min-width: 80px;
-        }
+    .status-indicator {
+        font-size: 12px;
+        color: #0f172a;
+        background: rgba(15, 23, 42, 0.08);
+        padding: 2px 4px;
+        border-radius: 999px;
+        min-height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        min-width: 80px;
+    }
     .selection-overlay {
         position: absolute;
         border: 2px dashed #007bff;
