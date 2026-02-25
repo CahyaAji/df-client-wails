@@ -9,6 +9,7 @@
     import {
         ClearDownloads,
         DownloadRegion,
+        GetMapKey,
         ListBookmarks,
     } from "../../../wailsjs/go/main/App";
     import { EventsOn } from "../../../wailsjs/runtime/runtime";
@@ -58,7 +59,7 @@
                 essential: true,
             });
         } else {
-            alert("Current location not available");
+            console.log("Current location not available");
         }
     }
 
@@ -254,15 +255,15 @@
     }
 
     // const API_KEY = "fB2eDjoDg2nlel5Kw6ym";
-    const API_KEY = "aUOEn1bA48mz3xc3pL4N";
-    //! buat key bisa diganti di runtime nanti
+    // const API_KEY = "aUOEn1bA48mz3xc3pL4N";
+    let apiKey = $state("");
 
     function getStyle(mode: "normal" | "hybrid") {
         const isHybrid = mode === "hybrid";
 
         const onlineUrl = isHybrid
-            ? `https://api.maptiler.com/maps/hybrid/{z}/{x}/{y}.jpg?key=${API_KEY}`
-            : `https://api.maptiler.com/maps/openstreetmap/{z}/{x}/{y}.jpg?key=${API_KEY}`;
+            ? `https://api.maptiler.com/maps/hybrid/{z}/{x}/{y}.jpg?key=${apiKey}`
+            : `https://api.maptiler.com/maps/openstreetmap/{z}/{x}/{y}.jpg?key=${apiKey}`;
 
         return {
             version: 8 as const,
@@ -630,7 +631,9 @@
         await performDownload(title, minZ, maxZ, selectionBounds);
     }
 
-    onMount(() => {
+    onMount(async () => {
+        apiKey = await GetMapKey();
+        // apiKey = "aUOEn1bA48mz3xc3pL4N"
         const lat = locationStore.data.latitude ?? -2.2;
         const lng = locationStore.data.longitude ?? 118;
         map = new maplibregl.Map({

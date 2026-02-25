@@ -62,6 +62,11 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 }
 
+// GetMapKey returns the map API key loaded from config.json
+func (a *App) GetMapKey() string {
+	return appConfig.MapKey
+}
+
 func long2tile(lon float64, zoom int) int {
 	return int(math.Floor(((lon + 180.0) / 360.0) * math.Pow(2.0, float64(zoom))))
 }
@@ -115,7 +120,7 @@ func (a *App) DownloadRegion(mode string, title string, minZ, maxZ int, north, s
 			}
 		}
 
-		apiKey := "fB2eDjoDg2nlel5Kw6ym"
+		apiKey := appConfig.MapKey
 		baseUrl := ""
 		if style == "hybrid" {
 			baseUrl = "https://api.maptiler.com/maps/hybrid/%d/%d/%d.jpg?key=" + apiKey

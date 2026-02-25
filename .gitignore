@@ -4,3 +4,5 @@ frontend/dist
 
 *.mbtiles
 .DS_Store
+
+config.json

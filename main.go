@@ -3,10 +3,11 @@ package main
 import (
 	"database/sql"
 	"embed"
+	"encoding/json"
 	"log"
 	"net/http"
-	"os"            // Added
-	"path/filepath" // Added
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/wailsapp/wails/v2"
@@ -19,6 +20,30 @@ import (
 var assets embed.FS
 
 var db *sql.DB
+
+// AppConfig holds configurable values loaded from config.json
+type AppConfig struct {
+	MapKey string `json:"map_key"`
+}
+
+var appConfig AppConfig
+
+func loadConfig() {
+	ex, err := os.Executable()
+	if err != nil {
+		log.Println("Could not determine executable path, using default config:", err)
+		return
+	}
+	configPath := filepath.Join(filepath.Dir(ex), "config.json")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		log.Println("config.json not found, using empty config:", err)
+		return
+	}
+	if err := json.Unmarshal(data, &appConfig); err != nil {
+		log.Println("Failed to parse config.json:", err)
+	}
+}
 
 func initDB() {
 	// 1. Get the path to the current executable
@@ -75,6 +100,7 @@ func initDB() {
 }
 
 func main() {
+	loadConfig()
 	initDB()
 	defer db.Close()
 

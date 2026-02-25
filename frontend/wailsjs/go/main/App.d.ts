@@ -6,4 +6,6 @@ export function ClearDownloads():Promise<void>;
 
 export function DownloadRegion(arg1:string,arg2:string,arg3:number,arg4:number,arg5:number,arg6:number,arg7:number,arg8:number):Promise<main.Bookmark>;
 
+export function GetMapKey():Promise<string>;
+
 export function ListBookmarks():Promise<Array<main.Bookmark>>;
