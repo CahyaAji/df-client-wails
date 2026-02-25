@@ -46,7 +46,6 @@
 
 <style>
   .container {
-    margin-top: 4px;
     display: flex;
     flex-direction: column;
     background-color: rgba(75, 83, 32, 0.6);
