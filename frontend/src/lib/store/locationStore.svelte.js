@@ -20,8 +20,8 @@ class LocationStore {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 this.data = {
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude,
+                    latitude: parseFloat(position.coords.latitude.toFixed(6)),
+                    longitude: parseFloat(position.coords.longitude.toFixed(6)),
                 };
                 this.source = "gps";
                 this.isLoading = false;
