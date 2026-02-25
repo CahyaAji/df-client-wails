@@ -31,3 +31,51 @@ export const readDF = async () => {
   }
 };
 
+export const setAntenna = async (/** @type {number} */ antSpace) => {
+  let typeAnt = "vhf";
+  if (antSpace <= 0.25) {
+    typeAnt = "uhf";
+  }
+
+  try {
+    const response = await fetch(API_URL + "/api/ant/" + typeAnt, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    if (response.status === 200) {
+      const jsonResponse = await response.json();
+      return { success: true, data: jsonResponse };
+    } else {
+      const errorText = await response.text();
+      return { success: false, error: `${response.status}: ${errorText}` };
+    }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+};
+
+export const setFreqGainApi = async (
+  /** @type {{center_freq: number, uniform_gain: number, ant_spacing_meters: number}} */ data
+) => {
+  try {
+    const response = await fetch(`${API_URL}/api/settings/freq`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (response.ok) {
+      const jsonResponse = await response.json();
+      return { success: true, data: jsonResponse };
+    } else {
+      const errorText = await response.text();
+      return { success: false, error: `HTTP ${response.status}: ${errorText}` };
+    }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+};
