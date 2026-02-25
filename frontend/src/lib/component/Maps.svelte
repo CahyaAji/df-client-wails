@@ -2,6 +2,7 @@
     import maplibregl from "maplibre-gl";
     import "maplibre-gl/dist/maplibre-gl.css";
     import { onMount, onDestroy } from "svelte";
+    import { locationStore } from "../store/locationStore.svelte.js";
 
     import {
         ClearDownloads,
@@ -57,6 +58,42 @@
     let offlineMode = $state(false);
     let isClearing = $state(false);
     let downloadLocked = $state(false);
+
+    let locationMarker: maplibregl.Marker | null = null;
+
+    function createLocationElement(): HTMLElement {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'my-location-marker';
+
+        const pulse = document.createElement('div');
+        pulse.className = 'my-location-pulse';
+
+        const dot = document.createElement('div');
+        dot.className = 'my-location-dot';
+
+        wrapper.appendChild(pulse);
+        wrapper.appendChild(dot);
+        return wrapper;
+    }
+
+    $effect(() => {
+        const { latitude, longitude } = locationStore.data;
+        if (!map) return;
+        if (latitude !== null && longitude !== null) {
+            if (!locationMarker) {
+                locationMarker = new maplibregl.Marker({ element: createLocationElement(), anchor: 'center' })
+                    .setLngLat([longitude, latitude])
+                    .addTo(map);
+            } else {
+                locationMarker.setLngLat([longitude, latitude]);
+            }
+        } else {
+            if (locationMarker) {
+                locationMarker.remove();
+                locationMarker = null;
+            }
+        }
+    });
 
     type Bounds = {
         north: number;
@@ -666,6 +703,32 @@
 </div>
 
 <style>
+    :global(.my-location-marker) {
+        position: relative;
+        width: 24px;
+        height: 24px;
+    }
+    :global(.my-location-pulse) {
+        position: absolute;
+        inset: -8px;
+        border-radius: 50%;
+        background: rgba(37, 99, 235, 0.20);
+        animation: location-pulse 2s ease-out infinite;
+    }
+    :global(.my-location-dot) {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: #2563eb;
+        border: 3px solid #ffffff;
+        box-shadow: 0 1px 6px rgba(0,0,0,0.35);
+    }
+    @keyframes location-pulse {
+        0%   { transform: scale(0.6); opacity: 1; }
+        80%  { transform: scale(1.8); opacity: 0; }
+        100% { transform: scale(1.8); opacity: 0; }
+    }
+
     .bookmark-list {
         position: absolute;
         left: 10px;

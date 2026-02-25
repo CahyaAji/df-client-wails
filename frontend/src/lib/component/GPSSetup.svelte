@@ -1,33 +1,40 @@
 <script lang="ts">
+    import { onMount } from 'svelte';
+    import { locationStore } from '../store/locationStore.svelte.js';
+
+    let lat = $state(locationStore.data.latitude);
+    let lng = $state(locationStore.data.longitude);
+
     function readGPS() {
-        console.log("read GPS");
-        if (!("geolocation" in navigator)) {
-            console.log("Geolocation is not supported by this browser.");
+        locationStore.fetchGPS();
+
+        setTimeout(() => {
+            lat = locationStore.data.latitude;
+            lng = locationStore.data.longitude;
+        }, 500);
+    }
+
+    function setGPS() {
+        if (lat === null || lng === null) {
+            lat = 0;
+            lng = 0;
             return;
         }
-
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                console.log("Latitude:", position.coords.latitude);
-                console.log("Longitude:", position.coords.longitude);
-            },
-            (error) => {
-                console.error("Error getting GPS location:", error);
-            },
-        );
+        locationStore.set(lat, lng);
     }
+
 </script>
 
 <div class="container">
     <div class="input-panel">
         <div class="latlng-content">
-            <div>
+            <div class="latlng-field">
                 <div>Latitude</div>
-                <input type="number" />
+                <input type="number" bind:value={lat} />
             </div>
-            <div>
+            <div class="latlng-field">
                 <div>Longitude</div>
-                <input type="number" />
+                <input type="number" bind:value={lng} />
             </div>
         </div>
         <div class="utm-content">
@@ -50,13 +57,9 @@
         </div>
     </div>
     <div class="button-panel">
-        <button
-            onclick={() => {
-                readGPS();
-            }}>Read</button
-        >
+        <button onclick={readGPS}>Read</button>
+        <button onclick={setGPS}>Set</button>
         <button>Convert UTM</button>
-        <button>Apply</button>
     </div>
 </div>
 
@@ -78,6 +81,9 @@
         display: flex;
         flex-direction: column;
         align-items: center;
+    }
+    .latlng-field {
+        padding: 2px 4px;
     }
     .utm-field {
         display: flex;
