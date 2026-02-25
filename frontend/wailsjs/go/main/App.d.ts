@@ -6,6 +6,16 @@ export function ClearDownloads():Promise<void>;
 
 export function DownloadRegion(arg1:string,arg2:string,arg3:number,arg4:number,arg5:number,arg6:number,arg7:number,arg8:number):Promise<main.Bookmark>;
 
+export function GetConfig():Promise<main.AppConfig>;
+
 export function GetMapKey():Promise<string>;
 
 export function ListBookmarks():Promise<Array<main.Bookmark>>;
+
+export function ResetConfig():Promise<void>;
+
+export function SetCompassOffset(arg1:number):Promise<void>;
+
+export function SetGPSLocation(arg1:number,arg2:number):Promise<void>;
+
+export function SetUTMLocation(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;

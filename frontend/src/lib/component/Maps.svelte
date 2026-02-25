@@ -9,10 +9,10 @@
     import {
         ClearDownloads,
         DownloadRegion,
-        GetMapKey,
         ListBookmarks,
     } from "../../../wailsjs/go/main/App";
     import { EventsOn } from "../../../wailsjs/runtime/runtime";
+    import { configStore } from "../store/configStore.svelte.js";
     // Bookmarks state
     let bookmarks: Array<{
         id: number;
@@ -256,7 +256,7 @@
 
     // const API_KEY = "fB2eDjoDg2nlel5Kw6ym";
     // const API_KEY = "aUOEn1bA48mz3xc3pL4N";
-    let apiKey = $state("");
+    const apiKey = $derived(configStore.mapKey);
 
     function getStyle(mode: "normal" | "hybrid") {
         const isHybrid = mode === "hybrid";
@@ -632,8 +632,7 @@
     }
 
     onMount(async () => {
-        apiKey = await GetMapKey();
-        // apiKey = "aUOEn1bA48mz3xc3pL4N"
+        await configStore.load();
         const lat = locationStore.data.latitude ?? -2.2;
         const lng = locationStore.data.longitude ?? 118;
         map = new maplibregl.Map({

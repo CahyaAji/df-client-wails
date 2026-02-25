@@ -67,6 +67,37 @@ func (a *App) GetMapKey() string {
 	return appConfig.MapKey
 }
 
+// GetConfig returns the full app configuration
+func (a *App) GetConfig() AppConfig {
+	return appConfig
+}
+
+// SetCompassOffset saves compass offset to config.json
+func (a *App) SetCompassOffset(value float64) error {
+	appConfig.CompassOffset = value
+	return saveConfig()
+}
+
+// SetGPSLocation saves GPS coordinates to config.json
+func (a *App) SetGPSLocation(lat, lng float64) error {
+	appConfig.GPSLocation = GPSLocation{Lat: lat, Lng: lng}
+	return saveConfig()
+}
+
+// SetUTMLocation saves UTM coordinates to config.json
+func (a *App) SetUTMLocation(zone, easting, northing, co string) error {
+	appConfig.UTMLocation = UTMLocation{Zone: zone, Easting: easting, Northing: northing, Co: co}
+	return saveConfig()
+}
+
+// ResetConfig resets all user settings to defaults, keeping the map key
+func (a *App) ResetConfig() error {
+	appConfig.CompassOffset = 0
+	appConfig.GPSLocation = GPSLocation{}
+	appConfig.UTMLocation = UTMLocation{}
+	return saveConfig()
+}
+
 func long2tile(lon float64, zoom int) int {
 	return int(math.Floor(((lon + 180.0) / 360.0) * math.Pow(2.0, float64(zoom))))
 }

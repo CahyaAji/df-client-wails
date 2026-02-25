@@ -21,21 +21,40 @@ var assets embed.FS
 
 var db *sql.DB
 
-// AppConfig holds configurable values loaded from config.json
+// GPSLocation holds a geographic coordinate
+type GPSLocation struct {
+	Lat float64 `json:"lat"`
+	Lng float64 `json:"lng"`
+}
+
+// UTMLocation holds a UTM coordinate
+type UTMLocation struct {
+	Zone     string `json:"zone"`
+	Easting  string `json:"easting"`
+	Northing string `json:"northing"`
+	Co       string `json:"co"`
+}
+
+// AppConfig holds configurable values saved in config.json
 type AppConfig struct {
-	MapKey string `json:"map_key"`
+	MapKey        string      `json:"map_key"`
+	CompassOffset float64     `json:"compass_offset"`
+	GPSLocation   GPSLocation `json:"gps_location"`
+	UTMLocation   UTMLocation `json:"utm_location"`
 }
 
 var appConfig AppConfig
 
-func loadConfig() {
+func configPath() string {
 	ex, err := os.Executable()
 	if err != nil {
-		log.Println("Could not determine executable path, using default config:", err)
-		return
+		return "config.json"
 	}
-	configPath := filepath.Join(filepath.Dir(ex), "config.json")
-	data, err := os.ReadFile(configPath)
+	return filepath.Join(filepath.Dir(ex), "config.json")
+}
+
+func loadConfig() {
+	data, err := os.ReadFile(configPath())
 	if err != nil {
 		log.Println("config.json not found, using empty config:", err)
 		return
@@ -43,6 +62,14 @@ func loadConfig() {
 	if err := json.Unmarshal(data, &appConfig); err != nil {
 		log.Println("Failed to parse config.json:", err)
 	}
+}
+
+func saveConfig() error {
+	data, err := json.MarshalIndent(appConfig, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(configPath(), data, 0644)
 }
 
 func initDB() {
