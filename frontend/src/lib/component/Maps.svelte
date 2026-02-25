@@ -41,6 +41,18 @@
         }
     }
 
+    function findMyLocation() {
+        if (locationStore.data.latitude !== null && locationStore.data.longitude !== null) {
+            map.flyTo({
+                center: [locationStore.data.longitude, locationStore.data.latitude],
+                zoom: 12.5,
+                essential: true,
+            });
+        } else {
+            alert("Current location not available");
+        }
+    }
+
     let mapContainer: HTMLElement;
     let map: maplibregl.Map;
 
@@ -523,11 +535,13 @@
     }
 
     onMount(() => {
+        const lat = locationStore.data.latitude ?? -2.2;
+        const lng = locationStore.data.longitude ?? 118;
         map = new maplibregl.Map({
             container: mapContainer,
             style: getStyle(currentMode),
-            center: [110.44053927286228, -7.777395993083473], // Yogyakarta
-            zoom: 14,
+            center: [lng, lat],
+            zoom: 4,
         });
         map.addControl(new maplibregl.ScaleControl(), "bottom-left");
         map.addControl(new maplibregl.NavigationControl(), "bottom-left");
@@ -564,7 +578,6 @@
     <div class="controls">
         <div class="toolbar">
             <button class="toolbar-btn" onclick={toggleBookmarkPanel}>
-                <!-- {showBookmarkList ? "Hide Downloads" : "Show Downloads"} -->
                 Downloads List
             </button>
             <button
@@ -594,6 +607,11 @@
                 />
                 <span>Satellite</span>
             </label>
+            <button class="toolbar-btn" onclick={findMyLocation}>
+                <div class="my-loc-btn">
+                    <div>🔵</div>
+                </div>
+            </button>
             <div class="toolbar-indicator">Zoom {currentZoom.toFixed(2)}</div>
         </div>
         {#if completionNotice}
@@ -942,6 +960,22 @@
         flex-direction: column;
         gap: 10px;
         width: 200px;
+    }
+    .my-loc-btn {
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background-color: white;
+        border: 1px solid black;
+    }
+    .my-loc-btn > div {
+        background-color: #2563eb;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
     }
 
     .notice {
