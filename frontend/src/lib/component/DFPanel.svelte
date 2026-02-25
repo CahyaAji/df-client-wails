@@ -3,6 +3,7 @@
     import RelativePlot from "./RelativePlot.svelte";
     import ControlPanel from "./ControlPanel.svelte";
     import { dfStore } from "../store/dfStore.svelte.js";
+    import { compassStore } from "../store/compassStore.svelte.js";
 
     let isStatusOpen = $state(true);
     let isPlotOpen = $state(true);
@@ -32,6 +33,15 @@
                 console.log("dfStore already running");
             }
             //3. Start CompassStore
+            if (!compassStore.isRunning) {
+                try {
+                    console.log("Starting compassStore");
+                    compassStore.start();
+                    console.log("compassStore started");
+                } catch (error) {
+                    console.error("Failed to start compassStore:", error);
+                }
+            }
             //4 Load DF Setting
             //4.2 setAntenna for initial freq
         }
@@ -45,6 +55,8 @@
             dfStore.stop();
 
             // stop compass listening
+            compassStore.stop();
+            
             //stop udp listening
         };
     });

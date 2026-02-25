@@ -79,3 +79,18 @@ export const setFreqGainApi = async (
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 };
+
+export const readCompass = async () => {
+  try {
+    const response = await fetch(`${API_URL}/api/compass`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, error: `HTTP ${response.status}: ${errorText}` };
+    }
+    const data = await response.json();
+    return { success: true, data: Number(data.heading) };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+};
