@@ -1,8 +1,10 @@
 <script lang="ts">
     import maplibregl from "maplibre-gl";
+    import type * as GeoJSON from "geojson";
     import "maplibre-gl/dist/maplibre-gl.css";
     import { onMount, onDestroy } from "svelte";
     import { locationStore } from "../store/locationStore.svelte.js";
+    import { dfStore } from "../store/dfStore.svelte.js";
 
     import {
         ClearDownloads,
@@ -42,10 +44,17 @@
     }
 
     function findMyLocation() {
-        if (locationStore.data.latitude !== null && locationStore.data.longitude !== null) {
+        const { latitude, longitude } = locationStore.data;
+        if (!map) return;
+        if (latitude !== null && longitude !== null) {
+            if(!locationMarker) {
+                locationMarker = new maplibregl.Marker({ element: createLocationElement(), anchor: 'center' })
+                    .setLngLat([longitude, latitude])
+                    .addTo(map);
+            }
             map.flyTo({
-                center: [locationStore.data.longitude, locationStore.data.latitude],
-                zoom: 12.5,
+                center: [longitude, latitude],
+                zoom: 12,
                 essential: true,
             });
         } else {
@@ -72,6 +81,93 @@
     let downloadLocked = $state(false);
 
     let locationMarker: maplibregl.Marker | null = null;
+
+    // --- DF Heading Line ---
+
+    function destinationPoint(
+        lat: number,
+        lng: number,
+        bearingDeg: number,
+        distanceKm: number,
+    ): [number, number] {
+        const R = 6371;
+        const d = distanceKm / R;
+        const θ = (bearingDeg * Math.PI) / 180;
+        const φ1 = (lat * Math.PI) / 180;
+        const λ1 = (lng * Math.PI) / 180;
+        const φ2 = Math.asin(
+            Math.sin(φ1) * Math.cos(d) +
+                Math.cos(φ1) * Math.sin(d) * Math.cos(θ),
+        );
+        const λ2 =
+            λ1 +
+            Math.atan2(
+                Math.sin(θ) * Math.sin(d) * Math.cos(φ1),
+                Math.cos(d) - Math.sin(φ1) * Math.sin(φ2),
+            );
+        return [(λ2 * 180) / Math.PI, (φ2 * 180) / Math.PI];
+    }
+
+    function updateDFLine() {
+        if (!map) return;
+        if (!locationMarker) return;
+        const { latitude, longitude } = locationStore.data;
+        const heading = dfStore.data?.heading;
+        const hasData =
+            latitude !== null &&
+            longitude !== null &&
+            heading !== undefined &&
+            heading !== null;
+        const geojson: GeoJSON.FeatureCollection = hasData
+            ? {
+                  type: "FeatureCollection",
+                  features: [
+                      {
+                          type: "Feature",
+                          geometry: {
+                              type: "LineString",
+                              coordinates: [
+                                  [longitude!, latitude!],
+                                  destinationPoint(
+                                      latitude!,
+                                      longitude!,
+                                      heading!,
+                                      10,
+                                  ),
+                              ],
+                          },
+                          properties: {},
+                      },
+                  ],
+              }
+            : { type: "FeatureCollection", features: [] };
+        if (!map.getSource("df-line")) {
+            map.addSource("df-line", { type: "geojson", data: geojson });
+            map.addLayer({
+                id: "df-line-layer",
+                type: "line",
+                source: "df-line",
+                paint: {
+                    "line-color": "#ef4444",
+                    "line-width": 3
+                },
+            });
+        } else {
+            (map.getSource("df-line") as maplibregl.GeoJSONSource).setData(
+                geojson,
+            );
+        }
+    }
+
+    $effect(() => {
+        // Re-run whenever location or DF heading changes
+        locationStore.data.latitude;
+        locationStore.data.longitude;
+        dfStore.data;
+        updateDFLine();
+    });
+
+    // --- End DF Heading Line ---
 
     function createLocationElement(): HTMLElement {
         const wrapper = document.createElement('div');
@@ -550,6 +646,7 @@
         map.on("zoom", updateCurrentZoom);
         map.on("zoomend", updateCurrentZoom);
         map.on("styledata", applyOfflinePreference);
+        map.on("styledata", updateDFLine);
         applyOfflinePreference();
         unsubscribeDownloadEvents = EventsOn("download-status", (...payload) =>
             handleDownloadStatusEvent((payload?.[0] as DownloadEvent) || null),
@@ -565,6 +662,7 @@
             map.off("zoom", updateCurrentZoom);
             map.off("zoomend", updateCurrentZoom);
             map.off("styledata", applyOfflinePreference);
+            map.off("styledata", updateDFLine);
             map.remove();
         }
         if (unsubscribeDownloadEvents) {
@@ -607,9 +705,9 @@
                 />
                 <span>Satellite</span>
             </label>
-            <button class="toolbar-btn" onclick={findMyLocation}>
+            <button class="toolbar-btn" onclick={findMyLocation} aria-label="Find my location">
                 <div class="my-loc-btn">
-                    <div>🔵</div>
+                    <div></div>
                 </div>
             </button>
             <div class="toolbar-indicator">Zoom {currentZoom.toFixed(2)}</div>
@@ -962,8 +1060,8 @@
         width: 200px;
     }
     .my-loc-btn {
-        width: 28px;
-        height: 28px;
+        width: 18px;
+        height: 18px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -973,8 +1071,8 @@
     }
     .my-loc-btn > div {
         background-color: #2563eb;
-        width: 18px;
-        height: 18px;
+        width: 14px;
+        height: 14px;
         border-radius: 50%;
     }
 
