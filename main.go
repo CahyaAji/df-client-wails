@@ -135,9 +135,9 @@ func main() {
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:  "DF Client",
-		Width:  1024,
-		Height: 768,
+		Title:  "DF",
+		Width:  860,
+		Height: 800,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 			Middleware: func(next http.Handler) http.Handler {
