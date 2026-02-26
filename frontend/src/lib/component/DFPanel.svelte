@@ -370,7 +370,7 @@
                 class="webview"
                 src={`${API_URL}/config`}
                 title="Example website"
-                style="width: 290px; margin: auto; height: 100%; border: none; overflow-x: hidden; background-color: rgba(4, 61, 15, 0.2);"
+                style="width: 290px; margin: auto; padding-left: 13px; height: 184px; border: none; overflow-x: hidden; background-color: rgba(4, 61, 15, 0.2);"
             ></iframe>
         {/if}
     </div>

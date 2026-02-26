@@ -156,7 +156,7 @@
     .msg {
         max-width: 220px;
         min-height: 60px;
-        font-size: 16pt;
+        font-size: 12pt;
         margin: 20px auto;
         padding: 10px;
         border-radius: 8px;
