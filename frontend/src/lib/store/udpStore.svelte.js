@@ -1,9 +1,8 @@
-import { StartUdpListener, StopUdpListener, SendUdpNumber } from "../../../wailsjs/go/main/App.js";
+import { StartUdpListener, StopUdpListener } from "../../../wailsjs/go/main/App.js";
 import { EventsOn } from "../../../wailsjs/runtime/runtime.js";
 
 class UdpState {
     currentNumb = $state(/** @type {number | null} */ (0));
-    currentMsg = $state(null);
     isListening = $state(false);
 }
 
@@ -34,7 +33,6 @@ export const udpStore = {
 
             unlisten = EventsOn("udp-message", (message) => {
                 console.log("[UDP] event received:", message);
-                udpState.currentMsg = message;
                 if (message.type === "number") {
                     udpState.currentNumb = message.data.value;
                 }
@@ -71,24 +69,10 @@ export const udpStore = {
             udpState.isListening = false;
 
             udpState.currentNumb = null;
-            udpState.currentMsg = null;
 
             return "Stopped listening";
         } catch (error) {
             throw new Error(`Failed to stop: ${error}`);
-        }
-    },
-
-    sendNumber: async (/** @type {number} */ number, port = 8080) => {
-        if (number < 0 || number > 1000000) {
-            throw new Error("Number must be between 0-1000000");
-        }
-
-        try {
-            await SendUdpNumber(number, port);
-            return `Sent ${number}`;
-        } catch (error) {
-            throw new Error(`Failed to send: ${error}`);
         }
     },
 };

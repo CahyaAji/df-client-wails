@@ -15,11 +15,12 @@ class DFStore {
     isLoading = $state(false);
     lastTimestamp = $state(/** @type {string | null} */ (null));
 
-    /** @type {ReturnType<typeof setInterval> | null} */
-    #interval = null;
+    /** @type {ReturnType<typeof setTimeout> | null} */
+    #timer = null;
+    #running = false;
 
     get isRunning() {
-        return this.#interval !== null;
+        return this.#running;
     }
 
     async fetch() {
@@ -62,33 +63,36 @@ class DFStore {
         }
     }
 
-    start() {
-        if (this.#interval) {
-            return;
+    // Serialized poll: only one fetch is ever in-flight at a time.
+    // Next request starts only AFTER the previous one resolves/rejects,
+    // preventing Chromium's connection pool from filling up with stalled
+    // TCP connections to an unreachable host.
+    async #poll() {
+        if (!this.#running) return;
+        await this.fetch();
+        if (this.#running) {
+            this.#timer = setTimeout(() => this.#poll(), 1000);
         }
+    }
 
-        this.fetch();
-        this.#interval = setInterval(() => {
-            this.fetch();
-        }, 1000);
-
+    start() {
+        if (this.#running) return;
+        this.#running = true;
+        // Defer the very first request so the UI renders before any network
+        // activity begins.
+        this.#timer = setTimeout(() => this.#poll(), 100);
         console.log("DF Store started");
     }
 
     stop() {
-        if (this.#interval) {
-            clearInterval(this.#interval);
-            this.#interval = null;
-            console.log("DF monitoring stopped");
+        this.#running = false;
+        if (this.#timer) {
+            clearTimeout(this.#timer);
+            this.#timer = null;
         }
+        console.log("DF monitoring stopped");
     }
 
-    clear() {
-        this.data = null;
-        this.error = null;
-        this.isLoading = false;
-        this.lastTimestamp = null; // Reset timestamp tracking
-    }
 }
 
 export const dfStore = new DFStore();

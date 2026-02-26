@@ -32,6 +32,7 @@ type Bookmark struct {
 
 // ListBookmarks returns all bookmarks
 func (a *App) ListBookmarks() ([]Bookmark, error) {
+	<-dbReady
 	rows, err := db.Query("SELECT id, title, style, min_zoom, max_zoom, north, south, east, west, center_lat, center_lng FROM bookmarks ORDER BY id DESC")
 	if err != nil {
 		return nil, err
@@ -119,6 +120,7 @@ func lat2tile(lat float64, zoom int) int {
 // --- MAIN DOWNLOAD FUNCTION ---
 // Called from Svelte: DownloadRegion("Title", 12, 14, -7.0, -7.5, 110.5, 110.0)
 func (a *App) DownloadRegion(mode string, title string, minZ, maxZ int, north, south, east, west float64) Bookmark {
+	<-dbReady
 
 	// Limit concurrent downloads to avoid DB lock/race
 	const maxConcurrent = 4
@@ -235,6 +237,7 @@ func (a *App) DownloadRegion(mode string, title string, minZ, maxZ int, north, s
 
 // ClearDownloads removes all cached tiles and bookmarks from the database.
 func (a *App) ClearDownloads() error {
+	<-dbReady
 	if _, err := db.Exec("DELETE FROM tiles"); err != nil {
 		return err
 	}

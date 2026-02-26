@@ -1,20 +1,18 @@
 <script lang="ts">
-    import { API_URL } from "../utils/api_handler.js";
+    import { onMount, onDestroy } from "svelte";
+    import { API_URL, getDFSettings, setAntenna, setFreqGainApi } from "../utils/api_handler.js";
     import RelativePlot from "./RelativePlot.svelte";
     import ControlPanel from "./ControlPanel.svelte";
     import { dfStore } from "../store/dfStore.svelte.js";
     import { configStore } from "../store/configStore.svelte.js";
     import { compassStore } from "../store/compassStore.svelte.js";
     import { signalState } from "../store/signalState.svelte.js";
-    import { getDFSettings } from "../utils/api_handler.js";
     import { udpState, udpStore } from "../store/udpStore.svelte.js";
-    import { setAntenna, setFreqGainApi } from "../utils/api_handler.js";
 
     let isStatusOpen = $state(true);
     let isPlotOpen = $state(true);
     let isSettingsOpen = $state(true);
 
-    let appInitialized = false;
     let frequencyDebounceTimer: ReturnType<typeof setTimeout> | null = null;
     const FREQUENCY_DEBOUNCE_MS = 150;
     const MIN_FREQUENCY_CHANGE = 0.001;
@@ -261,99 +259,44 @@
         };
     });
 
-    $effect(() => {
-        console.log("DFPanel, appInitialized:", appInitialized);
+    onMount(() => {
+        // 1. Load config from Go backend (fast local IPC, never blocks)
+        configStore.load();
 
-        if (appInitialized) {
-            console.log("DFPanel already initialized, skipping");
-            return () => {
-                console.log("Skipped initialization cleanup - doing nothing");
-            };
-        }
+        // 2. Start serialized polling stores
+        if (!dfStore.isRunning) dfStore.start();
+        if (!compassStore.isRunning) compassStore.start();
 
-        async function initialize() {
-            appInitialized = true;
-
-            // 1. Load ConfigStore
-            try {
-                const configResult = await configStore.load();
-                if (configResult.success) {
-                    console.log(
-                        "configStore loaded succesfully:",
-                        configStore.allSettings,
-                    );
-                } else {
-                    console.log(
-                        "Config load failed, using defaults:",
-                        configResult.error,
-                    );
-                }
-            } catch (error) {
-                console.log("error loading configStore:", error);
-            }
-            // 2. Start DFStore
-            if (!dfStore.isRunning) {
-                console.log("Starting dfStore");
-                dfStore.start();
-                console.log("dfStore started");
-            } else {
-                console.log("dfStore already running");
-            }
-            //3. Start CompassStore
-            if (!compassStore.isRunning) {
-                try {
-                    console.log("Starting compassStore");
-                    compassStore.start();
-                    console.log("compassStore started");
-                } catch (error) {
-                    console.error("Failed to start compassStore:", error);
-                }
-            }
-            //4 Load DF Setting
+        // 3. Load initial device settings in the background — never blocks startup
+        (async () => {
             try {
                 const savedDFSettings = await getDFSettings();
                 const centerFreq = Number(savedDFSettings.center_freq || 0);
                 signalState.setFrequency(centerFreq);
-
                 signalState.setGain(Number(savedDFSettings.uniform_gain || 0));
                 signalState.setStationName(savedDFSettings.station_id);
-
-                // setAntenna for initial freq
                 if (centerFreq > 0) {
                     const antSpace = centerFreq >= 250 ? 0.25 : 0.45;
                     await handleSetAntenna(antSpace);
                 }
-
-                console.log("Initial settings loaded:", savedDFSettings);
             } catch (error) {
-                console.log("Failed to load initial setting config:", error);
+                console.log("Failed to load initial settings:", error);
             }
-            console.log("App initialization completed");
+        })();
+    });
+
+    onDestroy(async () => {
+        if (frequencyDebounceTimer) {
+            clearTimeout(frequencyDebounceTimer);
+            frequencyDebounceTimer = null;
         }
-
-        initialize();
-
-        return async () => {
-            //freq debounce
-            if (frequencyDebounceTimer) {
-                clearTimeout(frequencyDebounceTimer);
-                frequencyDebounceTimer = null;
-            }
-
-            // stop df store
-            dfStore.stop();
-
-            // stop compass listening
-            compassStore.stop();
-
-            //stop udp listening
-            try {
-                const result = await udpStore.stopListening();
-                console.log("Parent destroy:", result);
-            } catch (err) {
-                console.log("UDP stop error:", (err as Error).message);
-            }
-        };
+        dfStore.stop();
+        compassStore.stop();
+        try {
+            await udpStore.stopListening();
+        } catch (err) {
+            console.log("UDP stop error:", (err as Error).message);
+        }
     });
 </script>
 

@@ -1,9 +1,26 @@
-// export const API_URL = "http://localhost:3000";
-export const API_URL = "http://192.168.17.17:8087";
+export const API_URL = "http://localhost:3000";
+// export const API_URL = "http://192.168.17.17:8087";
+
+// All requests to the DF device use a short timeout so a missing/unreachable
+// device never stalls startup for more than FETCH_TIMEOUT_MS milliseconds.
+const FETCH_TIMEOUT_MS = 3000;
+
+/**
+ * fetch() wrapper that aborts after FETCH_TIMEOUT_MS milliseconds.
+ * @param {string} url
+ * @param {RequestInit} [options]
+ * @returns {Promise<Response>}
+ */
+function fetchWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timer));
+}
 
 export const readDF = async () => {
   try {
-    const response = await fetch(`${API_URL}/df`);
+    const response = await fetchWithTimeout(`${API_URL}/df`);
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
@@ -38,7 +55,7 @@ export const setAntenna = async (/** @type {number} */ antSpace) => {
   }
 
   try {
-    const response = await fetch(API_URL + "/api/ant/" + typeAnt, {
+    const response = await fetchWithTimeout(API_URL + "/api/ant/" + typeAnt, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -60,7 +77,7 @@ export const setFreqGainApi = async (
   /** @type {{center_freq: number, uniform_gain: number, ant_spacing_meters: number}} */ data
 ) => {
   try {
-    const response = await fetch(`${API_URL}/api/settings/freq`, {
+    const response = await fetchWithTimeout(`${API_URL}/api/settings/freq`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -82,7 +99,7 @@ export const setFreqGainApi = async (
 
 export const readCompass = async () => {
   try {
-    const response = await fetch(`${API_URL}/api/compass`);
+    const response = await fetchWithTimeout(`${API_URL}/api/compass`);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -96,20 +113,13 @@ export const readCompass = async () => {
 };
 
 export const getDFSettings = async () => {
-  try {
-    const response = await fetch(`${API_URL}/api/settings`);
-    const result = await response.json();
-
-    const filteredResult = {
-      center_freq: result.center_freq,
-      uniform_gain: result.uniform_gain,
-      station_id: result.station_id,
-    };
-
-    return filteredResult;
-  } catch (error) {
-    throw error;
-  }
+  const response = await fetchWithTimeout(`${API_URL}/api/settings`);
+  const result = await response.json();
+  return {
+    center_freq: result.center_freq,
+    uniform_gain: result.uniform_gain,
+    station_id: result.station_id,
+  };
 };
 
 export const setStationId = async (/** @type {string} */ nameId) => {
@@ -117,7 +127,7 @@ export const setStationId = async (/** @type {string} */ nameId) => {
     id: nameId,
   };
   try {
-    const response = await fetch(API_URL + "/api/settings/station_id", {
+    const response = await fetchWithTimeout(API_URL + "/api/settings/station_id", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -138,7 +148,7 @@ export const setStationId = async (/** @type {string} */ nameId) => {
 
 export const turnOffDf = async () => {
   try {
-    await fetch(API_URL + "/api/shutdown", {
+    await fetchWithTimeout(API_URL + "/api/shutdown", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -155,7 +165,7 @@ export const turnOffDf = async () => {
 
 export const restartDf = async () => {
   try {
-    await fetch(API_URL + "/api/restart", {
+    await fetchWithTimeout(API_URL + "/api/restart", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

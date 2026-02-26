@@ -5,11 +5,12 @@ class CompassStore {
   error = $state(/** @type {string | null} */ (null));
   isLoading = $state(false);
 
-  /** @type {ReturnType<typeof setInterval> | null} */
-  #interval = null;
+  /** @type {ReturnType<typeof setTimeout> | null} */
+  #timer = null;
+  #running = false;
 
   get isRunning() {
-    return this.#interval !== null;
+    return this.#running;
   }
 
   async fetch() {
@@ -35,30 +36,29 @@ class CompassStore {
     }
   }
 
-  start() {
-    if (this.#interval) {
-      return;
+  // Serialized poll: only one fetch in-flight at a time.
+  async #poll() {
+    if (!this.#running) return;
+    await this.fetch();
+    if (this.#running) {
+      this.#timer = setTimeout(() => this.#poll(), 1000);
     }
+  }
 
-    this.fetch();
-    this.#interval = setInterval(() => {
-      this.fetch();
-    }, 1000);
-
+  start() {
+    if (this.#running) return;
+    this.#running = true;
+    this.#timer = setTimeout(() => this.#poll(), 100);
     console.log("Compass store started");
   }
 
   stop() {
-    if (this.#interval) {
-      clearInterval(this.#interval);
-      this.#interval = null;
-      console.log("Compass store stopped");
+    this.#running = false;
+    if (this.#timer) {
+      clearTimeout(this.#timer);
+      this.#timer = null;
     }
-  }
-  clear() {
-    this.data = 0;
-    this.error = null;
-    this.isLoading = false;
+    console.log("Compass store stopped");
   }
 }
 

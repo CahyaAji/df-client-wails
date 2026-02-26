@@ -637,8 +637,21 @@
         await performDownload(title, minZ, maxZ, selectionBounds);
     }
 
+    // Re-apply the map style when the API key loads so online tiles work
+    // without blocking the initial map render on the config IPC roundtrip.
+    let prevApiKey = "";
+    $effect(() => {
+        const key = apiKey;
+        if (!map || !key || key === prevApiKey) return;
+        prevApiKey = key;
+        map.setStyle(getStyle(currentMode));
+    });
+
     onMount(async () => {
-        await configStore.load();
+        // Fire config load without awaiting — the $effect above will update
+        // the map style once the API key arrives.
+        configStore.load();
+
         const lat = locationStore.data.latitude ?? -2.2;
         const lng = locationStore.data.longitude ?? 118;
         map = new maplibregl.Map({

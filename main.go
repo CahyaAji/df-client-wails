@@ -13,6 +13,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/windows"
 	_ "modernc.org/sqlite"
 )
 
@@ -20,6 +21,9 @@ import (
 var assets embed.FS
 
 var db *sql.DB
+
+// dbReady is closed once initDB() finishes — callers block on it before using db.
+var dbReady = make(chan struct{})
 
 // GPSLocation holds a geographic coordinate
 type GPSLocation struct {
@@ -86,10 +90,14 @@ func initDB() {
 
 	// 3. Open the database using the absolute path
 	// We use the "file:" prefix for modernc.org/sqlite to ensure path handling is robust
-	db, err = sql.Open("sqlite", dbPath+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
+	db, err = sql.Open("sqlite", dbPath+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=cache_size(-32000)&_pragma=temp_store(MEMORY)&_pragma=mmap_size(268435456)")
 	if err != nil {
 		log.Fatal("Failed to open database:", err)
 	}
+	// SQLite is single-writer; cap the pool to 1 open connection to avoid
+	// contention overhead and keep idle connections alive to amortize re-open cost.
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
 
 	query := `
     CREATE TABLE IF NOT EXISTS tiles (
@@ -124,12 +132,17 @@ func initDB() {
 			log.Fatal("Failed to add title column:", err)
 		}
 	}
+	// Signal that the DB is fully initialised.
+	close(dbReady)
 }
 
 func main() {
+	// Only loadConfig runs before the window opens — it is fast (one file read).
 	loadConfig()
-	initDB()
-	defer db.Close()
+
+	// initDB opens and migrates the SQLite file concurrently with wails.Run so
+	// the window appears immediately instead of waiting for DB setup.
+	go initDB()
 
 	app := NewApp()
 
@@ -138,6 +151,11 @@ func main() {
 		Title:  "DF",
 		Width:  860,
 		Height: 800,
+		Windows: &windows.Options{
+			// Persist the WebView2 profile so the browser engine is fully cached
+			// between launches — this is what makes 'wails dev' feel faster.
+			WebviewUserDataPath: filepath.Join(os.Getenv("APPDATA"), "DF"),
+		},
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 			Middleware: func(next http.Handler) http.Handler {
@@ -163,6 +181,8 @@ func main() {
 	if err != nil {
 		println("Error:", err.Error())
 	}
+	<-dbReady // ensure DB is closed cleanly on exit
+	db.Close()
 }
 
 // Logic to read from SQLite and send image back to Svelte
@@ -181,6 +201,10 @@ func handleTileRequest(w http.ResponseWriter, r *http.Request) {
 	x := parts[4]
 	yFilename := parts[5]
 	y := strings.TrimSuffix(yFilename, ".png") // Remove .png
+
+	// Wait for DB — should already be ready by the time tiles are requested,
+	// but guard against very fast requests right after startup.
+	<-dbReady
 
 	// 2. Query DB
 	var tileData []byte

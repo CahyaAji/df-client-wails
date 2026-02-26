@@ -29,7 +29,10 @@ class LocationStore {
             (err) => {
                 this.error = err.message;
                 this.isLoading = false;
-            }
+            },
+            // Don't block startup: give up after 5 s, accept a cached fix up to
+            // 5 minutes old, and skip the slow high-accuracy (GPS) path.
+            { timeout: 5000, maximumAge: 300000, enableHighAccuracy: false }
         );
     }
 
@@ -41,13 +44,6 @@ class LocationStore {
     set(latitude, longitude) {
         this.data = { latitude, longitude };
         this.source = "manual";
-        this.error = null;
-    }
-
-    /** Clear the stored location */
-    clear() {
-        this.data = { latitude: null, longitude: null };
-        this.source = null;
         this.error = null;
     }
 }
