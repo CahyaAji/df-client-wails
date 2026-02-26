@@ -27,8 +27,8 @@
     .container {
         display: flex;
         margin: auto;
-        width: 230px;
-        height: 230px;
+        width: 210px;
+        height: 210px;
         background-image: url("/src/assets/relative_circle.png");
         background-repeat: no-repeat;
         background-size: cover;
@@ -40,20 +40,20 @@
     }
     .rotating-circle {
         background-color: transparent;
-        width: 180px;
-        height: 180px;
+        width: 170px;
+        height: 170px;
         border-radius: 50%;
     }
     .arrow {
         width: 8px;
-        height: 58px;
+        height: 56px;
         background-color: yellow;
         margin: auto;
         border-radius: 4px;
     }
     .angle-text {
-        width: 70px;
-        height: 70px;
+        width: 64px;
+        height: 64px;
         display: flex;
         position: absolute;
         align-items: center;

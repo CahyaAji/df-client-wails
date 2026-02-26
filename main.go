@@ -149,8 +149,8 @@ func main() {
 	// Create application with options
 	err := wails.Run(&options.App{
 		Title:  "DF",
-		Width:  860,
-		Height: 800,
+		Width:  820,
+		Height: 720,
 		Windows: &windows.Options{
 			// Persist the WebView2 profile so the browser engine is fully cached
 			// between launches — this is what makes 'wails dev' feel faster.

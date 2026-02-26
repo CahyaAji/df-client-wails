@@ -110,16 +110,16 @@
     position: relative;
     margin: 0 auto;
     display: flex;
-    width: 98px;
-    height: 98px;
+    width: 80px;
+    height: 80px;
     align-items: center;
     justify-content: center;
   }
   .rotating-circle {
     position: absolute;
     display: flex;
-    width: 98px;
-    height: 98px;
+    width: 84px;
+    height: 84px;
     border-radius: 50%;
     justify-content: center;
     margin: auto;
@@ -128,14 +128,14 @@
   }
   .circle {
     position: absolute;
-    width: 62px;
-    height: 62px;
+    width: 54px;
+    height: 54px;
     border-radius: 50%;
     margin: auto;
     border: 1px solid yellow;
   }
   .arrow {
-    width: 6px;
+    width: 5px;
     height: 50%;
     background-color: white;
     margin: auto;

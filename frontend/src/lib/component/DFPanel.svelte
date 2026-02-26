@@ -1,6 +1,11 @@
 <script lang="ts">
     import { onMount, onDestroy } from "svelte";
-    import { API_URL, getDFSettings, setAntenna, setFreqGainApi } from "../utils/api_handler.js";
+    import {
+        API_URL,
+        getDFSettings,
+        setAntenna,
+        setFreqGainApi,
+    } from "../utils/api_handler.js";
     import RelativePlot from "./RelativePlot.svelte";
     import ControlPanel from "./ControlPanel.svelte";
     import { dfStore } from "../store/dfStore.svelte.js";
@@ -303,10 +308,10 @@
 <div class="container">
     <div style="width: 100%;">
         <div class="title">
-            <div style="margin: 6px 4px;">Status</div>
-            <button onclick={() => (isStatusOpen = !isStatusOpen)}>
+            <button style="margin-left: 4px;" onclick={() => (isStatusOpen = !isStatusOpen)}>
                 {isStatusOpen ? "︽" : "︾"}
             </button>
+            <div style="margin: 6px 4px;">Status</div>
         </div>
         {#if isStatusOpen}
             <iframe
@@ -319,10 +324,10 @@
     </div>
     <div style="width: 100%;">
         <div class="title">
-            <div style="margin: 6px 4px;">Plot</div>
-            <button onclick={() => (isPlotOpen = !isPlotOpen)}>
+            <button style="margin-left: 4px;" onclick={() => (isPlotOpen = !isPlotOpen)}>
                 {isPlotOpen ? "︽" : "︾"}
             </button>
+            <div style="margin: 6px 4px;">Plot</div>
         </div>
         {#if isPlotOpen}
             <RelativePlot />
@@ -330,10 +335,10 @@
     </div>
     <div style="width: 100%;">
         <div class="title">
-            <div style="margin: 6px 4px;">Settings</div>
-            <button onclick={() => (isSettingsOpen = !isSettingsOpen)}>
+            <button style="margin-left: 4px;" onclick={() => (isSettingsOpen = !isSettingsOpen)}>
                 {isSettingsOpen ? "︽" : "︾"}
             </button>
+            <div style="margin: 6px 4px;">Settings</div>
         </div>
         {#if isSettingsOpen}
             <ControlPanel />
@@ -347,7 +352,7 @@
         position: absolute;
         display: flex;
         flex-direction: column;
-        top: 50px;
+        top: 6px;
         right: 8px;
         gap: 1px;
         box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);

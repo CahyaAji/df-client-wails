@@ -76,7 +76,7 @@
     let downloadStatus = $state("Ready");
     let currentMode = $state<"normal" | "hybrid">("normal"); // 'normal' or 'hybrid'
     let showDownloadPanel = $state(false);
-    let downloadTab = $state<"download" | "bookmarks">("download");
+    let downloadTab = $state<"download" | "bookmarks">("bookmarks");
     let completionNotice = $state("");
     let downloadTitle = $state("");
     let noticeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1006,9 +1006,12 @@
             style: getStyle(currentMode),
             center: [lng, lat],
             zoom: 4,
+            attributionControl: false,
         });
-        map.addControl(new maplibregl.ScaleControl(), "bottom-left");
+        map.addControl(new maplibregl.AttributionControl(), "bottom-left");
+        // map.addControl(new maplibregl.ScaleControl(), "bottom-left");
         map.addControl(new maplibregl.NavigationControl(), "bottom-left");
+
         updateCurrentZoom();
         syncMinZoomWithCurrent();
         map.on("zoom", updateCurrentZoom);
@@ -1099,10 +1102,22 @@
                 </div>
             </button>
             <button
+                aria-label="Show Markers"
                 class="toolbar-btn"
                 class:active-state={showMarkerBottomPanel}
                 onclick={() => (showMarkerBottomPanel = !showMarkerBottomPanel)}
-            >Markers</button>
+                ><svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                >
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                </svg></button
+            >
             <button
                 class="toolbar-btn"
                 class:active-state={showDownloadPanel}
@@ -1121,6 +1136,13 @@
             <div class="download-menu">
                 <!-- Tab bar -->
                 <div class="dl-tabs">
+                    
+                    <button
+                        class="dl-tab"
+                        class:active={downloadTab === "bookmarks"}
+                        onclick={() => (downloadTab = "bookmarks")}
+                        >Saved Maps</button
+                    >
                     <button
                         class="dl-tab"
                         class:active={downloadTab === "download"}
@@ -1128,12 +1150,6 @@
                             downloadTab = "download";
                             syncMinZoomWithCurrent();
                         }}>Download</button
-                    >
-                    <button
-                        class="dl-tab"
-                        class:active={downloadTab === "bookmarks"}
-                        onclick={() => (downloadTab = "bookmarks")}
-                        >Saved Maps</button
                     >
                 </div>
 
@@ -1248,192 +1264,198 @@
 
     <!-- Marker Bottom Panel -->
     {#if showMarkerBottomPanel}
-    <div class="marker-bottom-panel" class:pinpointing={pinPointMode}>
-        <div class="marker-panel-header">
-            <span class="marker-panel-title"
-                >Markers ({userMarkers.length})</span
-            >
-            <div class="marker-panel-actions">
-                {#if !showAddMarkerForm}
-                    <button
-                        class="marker-action-btn add"
-                        onclick={openAddMarkerForm}
-                    >
-                        + Add Marker
-                    </button>
-                {/if}
-                <button
-                    class="marker-action-btn toggle"
-                    class:open={showMarkerPanel}
-                    onclick={toggleMarkerPanel}
-                    aria-label="Toggle marker list"
+        <div class="marker-bottom-panel" class:pinpointing={pinPointMode}>
+            <div class="marker-panel-header">
+                <span class="marker-panel-title"
+                    >Markers ({userMarkers.length})</span
                 >
-                    {showMarkerPanel ? "▼" : "▲"} List
-                </button>
-            </div>
-        </div>
-
-        {#if showAddMarkerForm}
-            <div class="add-marker-form">
-                {#if markerType === null}
-                    <!-- Step 1: choose marker type -->
-                    <div class="marker-type-selector">
-                        <span class="marker-type-label"
-                            >Select marker type:</span
-                        >
-                        <div class="marker-type-btns">
-                            <button
-                                class="marker-type-btn point"
-                                onclick={() => selectMarkerType("point")}
-                            >
-                                <span class="mtype-icon">📍</span>
-                                <span class="mtype-name">Point Marker</span>
-                                <span class="mtype-desc"
-                                    >Marks a place on the map</span
-                                >
-                            </button>
-                            <button
-                                class="marker-type-btn direction"
-                                onclick={() => selectMarkerType("direction")}
-                            >
-                                <span class="mtype-icon">🧭</span>
-                                <span class="mtype-name">Direction Marker</span>
-                                <span class="mtype-desc"
-                                    >Marks a place with a direction line</span
-                                >
-                            </button>
-                        </div>
+                <div class="marker-panel-actions">
+                    {#if !showAddMarkerForm}
                         <button
-                            class="marker-action-btn cancel"
-                            style="align-self:flex-end"
-                            onclick={cancelAddMarkerForm}>Cancel</button
+                            class="marker-action-btn add"
+                            onclick={openAddMarkerForm}
                         >
-                    </div>
-                {:else}
-                    <!-- Step 2: fill in the form -->
-                    <div class="marker-type-chip {markerType}">
-                        {editingMarkerId !== null
-                            ? "✏️ Edit — "
-                            : ""}{markerType === "point"
-                            ? "📍 Point Marker"
-                            : "🧭 Direction Marker"}
-                    </div>
-                    <input
-                        class="marker-input"
-                        type="text"
-                        placeholder="Marker name"
-                        maxlength="80"
-                        bind:value={newMarkerName}
-                    />
-                    <div class="coord-row">
-                        <input
-                            class="marker-input coord"
-                            type="number"
-                            placeholder="Latitude"
-                            step="0.000001"
-                            bind:value={newMarkerLat}
-                        />
-                        <input
-                            class="marker-input coord"
-                            type="number"
-                            placeholder="Longitude"
-                            step="0.000001"
-                            bind:value={newMarkerLng}
-                        />
-                        <button
-                            class="pinpoint-btn"
-                            class:active={pinPointMode}
-                            onclick={togglePinPointMode}
-                            title="Click on the map to pick coordinates"
-                        >
-                            {#if pinPointMode}
-                                <span class="pinpoint-icon">✕</span> Cancel
-                            {:else}
-                                <span class="pinpoint-icon">📍</span> Pin
-                            {/if}
+                            + Add Marker
                         </button>
-                    </div>
-                    {#if markerType === "direction"}
-                        <label class="angle-label">
-                            Direction angle (0–360°)
-                            <input
-                                class="marker-input"
-                                type="number"
-                                placeholder="e.g. 45"
-                                min="0"
-                                max="360"
-                                step="1"
-                                style="margin-top:4px"
-                                bind:value={newMarkerAngle}
-                            />
-                        </label>
                     {/if}
-                    {#if pinPointMode}
-                        <div class="pinpoint-hint">
-                            Click anywhere on the map to set coordinates
-                        </div>
-                    {/if}
-                    <div class="form-actions">
-                        {#if editingMarkerId !== null}
-                            <button
-                                class="marker-action-btn add"
-                                onclick={confirmEditMarker}>Save</button
-                            >
-                        {:else}
-                            <button
-                                class="marker-action-btn add"
-                                onclick={confirmAddMarker}>Add</button
-                            >
-                        {/if}
-                        <button
-                            class="marker-action-btn cancel"
-                            onclick={cancelAddMarkerForm}>Cancel</button
-                        >
-                    </div>
-                {/if}
+                    <button
+                        class="marker-action-btn toggle"
+                        class:open={showMarkerPanel}
+                        onclick={toggleMarkerPanel}
+                        aria-label="Toggle marker list"
+                    >
+                        {showMarkerPanel ? "▼" : "▲"} List
+                    </button>
+                </div>
             </div>
-        {/if}
 
-        {#if showMarkerPanel}
-            <div class="marker-list-scroll">
-                {#if userMarkers.length === 0}
-                    <div class="marker-empty">No markers added yet.</div>
-                {:else}
-                    {#each userMarkers as m}
-                        <div class="marker-list-item">
-                            <button
-                                class="marker-name-btn"
-                                onclick={() => flyToMarker(m)}
+            {#if showAddMarkerForm}
+                <div class="add-marker-form">
+                    {#if markerType === null}
+                        <!-- Step 1: choose marker type -->
+                        <div class="marker-type-selector">
+                            <span class="marker-type-label"
+                                >Select marker type:</span
                             >
-                                <span class="marker-list-icon"
-                                    >{m.type === "direction"
-                                        ? "🧭"
-                                        : "📍"}</span
+                            <div class="marker-type-btns">
+                                <button
+                                    class="marker-type-btn point"
+                                    onclick={() => selectMarkerType("point")}
                                 >
-                                <span class="marker-list-name">{m.name}</span>
-                                <span class="marker-list-coords">
-                                    {m.lat.toFixed(4)}, {m.lng.toFixed(4)}
-                                    {#if m.type === "direction" && m.angle !== undefined}
-                                        &nbsp;· {m.angle.toFixed(0)}°
-                                    {/if}
-                                </span>
-                            </button>
+                                    <span class="mtype-icon">📍</span>
+                                    <span class="mtype-name">Point Marker</span>
+                                    <span class="mtype-desc"
+                                        >Marks a place on the map</span
+                                    >
+                                </button>
+                                <button
+                                    class="marker-type-btn direction"
+                                    onclick={() =>
+                                        selectMarkerType("direction")}
+                                >
+                                    <span class="mtype-icon">🧭</span>
+                                    <span class="mtype-name"
+                                        >Direction Marker</span
+                                    >
+                                    <span class="mtype-desc"
+                                        >Marks a place with a direction line</span
+                                    >
+                                </button>
+                            </div>
                             <button
-                                class="marker-edit-btn"
-                                onclick={() => openEditMarkerForm(m)}
-                                aria-label="Edit marker {m.name}">✎</button
-                            >
-                            <button
-                                class="marker-remove-btn"
-                                onclick={() => removeUserMarker(m.id)}
-                                aria-label="Remove marker {m.name}">✕</button
+                                class="marker-action-btn cancel"
+                                style="align-self:flex-end"
+                                onclick={cancelAddMarkerForm}>Cancel</button
                             >
                         </div>
-                    {/each}
-                {/if}
-            </div>
-        {/if}
-    </div>
+                    {:else}
+                        <!-- Step 2: fill in the form -->
+                        <div class="marker-type-chip {markerType}">
+                            {editingMarkerId !== null
+                                ? "✏️ Edit — "
+                                : ""}{markerType === "point"
+                                ? "📍 Point Marker"
+                                : "🧭 Direction Marker"}
+                        </div>
+                        <input
+                            class="marker-input"
+                            type="text"
+                            placeholder="Marker name"
+                            maxlength="80"
+                            bind:value={newMarkerName}
+                        />
+                        <div class="coord-row">
+                            <input
+                                class="marker-input coord"
+                                type="number"
+                                placeholder="Latitude"
+                                step="0.000001"
+                                bind:value={newMarkerLat}
+                            />
+                            <input
+                                class="marker-input coord"
+                                type="number"
+                                placeholder="Longitude"
+                                step="0.000001"
+                                bind:value={newMarkerLng}
+                            />
+                            <button
+                                class="pinpoint-btn"
+                                class:active={pinPointMode}
+                                onclick={togglePinPointMode}
+                                title="Click on the map to pick coordinates"
+                            >
+                                {#if pinPointMode}
+                                    <span class="pinpoint-icon">✕</span> Cancel
+                                {:else}
+                                    <span class="pinpoint-icon">📍</span> Pin
+                                {/if}
+                            </button>
+                        </div>
+                        {#if markerType === "direction"}
+                            <label class="angle-label">
+                                Direction angle (0–360°)
+                                <input
+                                    class="marker-input"
+                                    type="number"
+                                    placeholder="e.g. 45"
+                                    min="0"
+                                    max="360"
+                                    step="1"
+                                    style="margin-top:4px"
+                                    bind:value={newMarkerAngle}
+                                />
+                            </label>
+                        {/if}
+                        {#if pinPointMode}
+                            <div class="pinpoint-hint">
+                                Click anywhere on the map to set coordinates
+                            </div>
+                        {/if}
+                        <div class="form-actions">
+                            {#if editingMarkerId !== null}
+                                <button
+                                    class="marker-action-btn add"
+                                    onclick={confirmEditMarker}>Save</button
+                                >
+                            {:else}
+                                <button
+                                    class="marker-action-btn add"
+                                    onclick={confirmAddMarker}>Add</button
+                                >
+                            {/if}
+                            <button
+                                class="marker-action-btn cancel"
+                                onclick={cancelAddMarkerForm}>Cancel</button
+                            >
+                        </div>
+                    {/if}
+                </div>
+            {/if}
+
+            {#if showMarkerPanel}
+                <div class="marker-list-scroll">
+                    {#if userMarkers.length === 0}
+                        <div class="marker-empty">No markers added yet.</div>
+                    {:else}
+                        {#each userMarkers as m}
+                            <div class="marker-list-item">
+                                <button
+                                    class="marker-name-btn"
+                                    onclick={() => flyToMarker(m)}
+                                >
+                                    <span class="marker-list-icon"
+                                        >{m.type === "direction"
+                                            ? "🧭"
+                                            : "📍"}</span
+                                    >
+                                    <span class="marker-list-name"
+                                        >{m.name}</span
+                                    >
+                                    <span class="marker-list-coords">
+                                        {m.lat.toFixed(4)}, {m.lng.toFixed(4)}
+                                        {#if m.type === "direction" && m.angle !== undefined}
+                                            &nbsp;· {m.angle.toFixed(0)}°
+                                        {/if}
+                                    </span>
+                                </button>
+                                <button
+                                    class="marker-edit-btn"
+                                    onclick={() => openEditMarkerForm(m)}
+                                    aria-label="Edit marker {m.name}">✎</button
+                                >
+                                <button
+                                    class="marker-remove-btn"
+                                    onclick={() => removeUserMarker(m.id)}
+                                    aria-label="Remove marker {m.name}"
+                                    >✕</button
+                                >
+                            </div>
+                        {/each}
+                    {/if}
+                </div>
+            {/if}
+        </div>
     {/if}
     <!-- End Marker Bottom Panel -->
 </div>
@@ -1668,10 +1690,10 @@
     }
 
     .toolbar-indicator {
-        padding: 0 16px;
+        padding: 0 8px;
         font-size: 13px;
         color: #1e293b;
-        min-width: 110px;
+        min-width: 70px;
         cursor: default;
     }
 

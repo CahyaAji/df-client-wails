@@ -106,7 +106,7 @@
     .utm-field {
         display: flex;
         align-items: center;
-        padding: 2px 4px;
+        padding: 1px 4px;
     }
     .utm-field > div {
         align-self: flex-end;
