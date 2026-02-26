@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
+	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -50,6 +53,13 @@ func (a *App) ListBookmarks() ([]Bookmark, error) {
 type App struct {
 	ctx context.Context
 }
+
+// UDP listener state
+var (
+	udpConn      *net.UDPConn
+	udpMu        sync.Mutex
+	udpListening bool
+)
 
 // NewApp creates a new App application struct
 func NewApp() *App {
@@ -233,4 +243,99 @@ func (a *App) ClearDownloads() error {
 	}
 	_, err := db.Exec("VACUUM")
 	return err
+}
+
+// StartUdpListener starts a UDP listener on the given port and emits received messages as events.
+func (a *App) StartUdpListener(port int) string {
+	udpMu.Lock()
+	defer udpMu.Unlock()
+
+	if udpListening {
+		return fmt.Sprintf("Already listening on port %d", port)
+	}
+
+	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return fmt.Sprintf("Error resolving address: %v", err)
+	}
+
+	conn, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		return fmt.Sprintf("Error listening: %v", err)
+	}
+
+	udpConn = conn
+	udpListening = true
+
+	go func() {
+		buf := make([]byte, 4096)
+		for {
+			n, _, err := conn.ReadFromUDP(buf)
+			if err != nil {
+				break
+			}
+			raw := strings.TrimSpace(string(buf[:n]))
+			fmt.Printf("[UDP] received: %q\n", raw)
+
+			// Try JSON first (device may send structured JSON directly)
+			var jsonMsg map[string]any
+			if err := json.Unmarshal([]byte(raw), &jsonMsg); err == nil {
+				fmt.Printf("[UDP] emitting JSON message: %v\n", jsonMsg)
+				runtime.EventsEmit(a.ctx, "udp-message", jsonMsg)
+			} else if value, err := strconv.ParseFloat(raw, 64); err == nil {
+				// Plain number string
+				fmt.Printf("[UDP] emitting number: %v\n", value)
+				runtime.EventsEmit(a.ctx, "udp-message", map[string]any{
+					"type": "number",
+					"data": map[string]any{"value": value},
+				})
+			} else {
+				// Raw string
+				fmt.Printf("[UDP] emitting raw: %q\n", raw)
+				runtime.EventsEmit(a.ctx, "udp-message", map[string]any{
+					"type": "raw",
+					"data": map[string]any{"value": raw},
+				})
+			}
+		}
+	}()
+
+	return fmt.Sprintf("Listening on port %d", port)
+}
+
+// StopUdpListener stops the active UDP listener.
+func (a *App) StopUdpListener() string {
+	udpMu.Lock()
+	defer udpMu.Unlock()
+
+	if !udpListening || udpConn == nil {
+		return "Not listening"
+	}
+
+	udpConn.Close()
+	udpConn = nil
+	udpListening = false
+
+	return "Stopped listening"
+}
+
+// SendUdpNumber sends a number as a UDP packet to localhost on the given port.
+func (a *App) SendUdpNumber(number int, port int) string {
+	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("127.0.0.1:%d", port))
+	if err != nil {
+		return fmt.Sprintf("Error resolving address: %v", err)
+	}
+
+	conn, err := net.DialUDP("udp", nil, addr)
+	if err != nil {
+		return fmt.Sprintf("Error connecting: %v", err)
+	}
+	defer conn.Close()
+
+	_, err = conn.Write([]byte(fmt.Sprintf("%d", number)))
+	if err != nil {
+		return fmt.Sprintf("Error sending: %v", err)
+	}
+
+	return fmt.Sprintf("Sent %d", number)
 }

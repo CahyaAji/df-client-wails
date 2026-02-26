@@ -26,6 +26,10 @@ export function ResetConfig() {
   return window['go']['main']['App']['ResetConfig']();
 }
 
+export function SendUdpNumber(arg1, arg2) {
+  return window['go']['main']['App']['SendUdpNumber'](arg1, arg2);
+}
+
 export function SetCompassOffset(arg1) {
   return window['go']['main']['App']['SetCompassOffset'](arg1);
 }
@@ -36,4 +40,12 @@ export function SetGPSLocation(arg1, arg2) {
 
 export function SetUTMLocation(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['SetUTMLocation'](arg1, arg2, arg3, arg4);
+}
+
+export function StartUdpListener(arg1) {
+  return window['go']['main']['App']['StartUdpListener'](arg1);
+}
+
+export function StopUdpListener() {
+  return window['go']['main']['App']['StopUdpListener']();
 }

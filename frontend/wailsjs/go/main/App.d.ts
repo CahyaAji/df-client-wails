@@ -14,8 +14,14 @@ export function ListBookmarks():Promise<Array<main.Bookmark>>;
 
 export function ResetConfig():Promise<void>;
 
+export function SendUdpNumber(arg1:number,arg2:number):Promise<string>;
+
 export function SetCompassOffset(arg1:number):Promise<void>;
 
 export function SetGPSLocation(arg1:number,arg2:number):Promise<void>;
 
 export function SetUTMLocation(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
+
+export function StartUdpListener(arg1:number):Promise<string>;
+
+export function StopUdpListener():Promise<string>;
