@@ -1,12 +1,13 @@
 <script>
   import { compassStore } from "../store/compassStore.svelte";
-  import { configStore } from "../store/configStore.svelte";
+  // import { configStore } from "../store/configStore.svelte";
+  import { signalState } from "../store/signalState.svelte";
 
   let inputOffset = $state(0);
   let errorMessage = $state("");
   let isSaving = $state(false); // Add this flag
 
-  let compassOffset = $derived(configStore.compassOffset);
+  let compassOffset = $derived(signalState.compassOffset);
 
   async function handleSetOffset() {
     if (inputOffset === null || inputOffset === undefined) {
@@ -26,19 +27,21 @@
       return;
     }
 
-    isSaving = true; // Set flag before save
-    const result = await configStore.setCompassOffset(inputOffset);
-    isSaving = false; // Clear flag after save
+    signalState.setCompassOffset(inputOffset);
+
+    // isSaving = true; // Set flag before save
+    // const result = await configStore.setCompassOffset(inputOffset);
+    // isSaving = false; // Clear flag after save
     
-    if (result.success) {
-      console.log("Compass offset updated successfully: " + inputOffset);
-    } else {
-      console.error("Failed to update compass offset:", result.error);
-      errorMessage = "Error: Gagal mengatur offset";
-      setTimeout(() => {
-        errorMessage = "";
-      }, 1500);
-    }
+    // if (result.success) {
+    //   console.log("Compass offset updated successfully: " + inputOffset);
+    // } else {
+    //   console.error("Failed to update compass offset:", result.error);
+    //   errorMessage = "Error: Gagal mengatur offset";
+    //   setTimeout(() => {
+    //     errorMessage = "";
+    //   }, 1500);
+    // }
   }
 
   $effect(() => {
@@ -83,12 +86,13 @@
       lang="en-US"
       placeholder="Enter Offset"
     />
-    <button onclick={handleSetOffset} disabled={configStore.isLoading}>
+    <!-- <button onclick={handleSetOffset} disabled={configStore.isLoading}>
       {configStore.isLoading ? "Saving..." : "Set"}
     </button>
     {#if configStore.error}
       <div class="error">Error: {configStore.error}</div>
-    {/if}
+    {/if} -->
+    <button onclick={handleSetOffset}>Set</button>
   </div>
 </div>
 

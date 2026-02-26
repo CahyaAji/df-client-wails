@@ -5,6 +5,7 @@
     import { onMount, onDestroy } from "svelte";
     import { locationStore } from "../store/locationStore.svelte.js";
     import { dfStore } from "../store/dfStore.svelte.js";
+    import { signalState } from "../store/signalState.svelte.js";
 
     import {
         ClearDownloads,
@@ -13,6 +14,7 @@
     } from "../../../wailsjs/go/main/App";
     import { EventsOn } from "../../../wailsjs/runtime/runtime";
     import { configStore } from "../store/configStore.svelte.js";
+    import { compassStore } from "../store/compassStore.svelte.js";
     // Bookmarks state
     let bookmarks: Array<{
         id: number;
@@ -112,8 +114,12 @@
     function updateDFLine() {
         if (!map) return;
         if (!locationMarker) return;
+        if (!dfStore.data) return;
         const { latitude, longitude } = locationStore.data;
-        const heading = dfStore.data?.heading;
+        const dfHeading =  dfStore.data.heading;
+        const compassHeading = compassStore.data;
+        const compassOffset = signalState.compassOffset || 0;
+        const heading = ( 360 + dfHeading + compassHeading + compassOffset ) % 360;
         const hasData =
             latitude !== null &&
             longitude !== null &&
