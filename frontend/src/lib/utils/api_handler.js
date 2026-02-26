@@ -1,5 +1,5 @@
-export const API_URL = "http://localhost:3000";
-// export const API_URL = "http://192.168.17.17:8087";
+// export const API_URL = "http://localhost:3000";
+export const API_URL = "http://192.168.17.17:8087";
 
 // All requests to the DF device use a short timeout so a missing/unreachable
 // device never stalls startup for more than FETCH_TIMEOUT_MS milliseconds.
