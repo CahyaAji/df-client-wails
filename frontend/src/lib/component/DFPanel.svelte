@@ -404,7 +404,7 @@
         position: absolute;
         display: flex;
         flex-direction: column;
-        top: 8px;
+        top: 50px;
         right: 8px;
         gap: 1px;
         box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
