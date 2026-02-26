@@ -40,7 +40,7 @@
 
     function goToBookmark(b: (typeof bookmarks)[number]) {
         if (map) {
-            map.setStyle(getStyle(b.style as "normal" | "hybrid"));
+            switchStyle(b.style as "normal" | "hybrid");
             map.setCenter([b.center_lng, b.center_lat]);
             map.setZoom(b.min_zoom);
         }
@@ -50,8 +50,11 @@
         const { latitude, longitude } = locationStore.data;
         if (!map) return;
         if (latitude !== null && longitude !== null) {
-            if(!locationMarker) {
-                locationMarker = new maplibregl.Marker({ element: createLocationElement(), anchor: 'center' })
+            if (!locationMarker) {
+                locationMarker = new maplibregl.Marker({
+                    element: createLocationElement(),
+                    anchor: "center",
+                })
                     .setLngLat([longitude, latitude])
                     .addTo(map);
             }
@@ -138,8 +141,9 @@
     let userMarkers: UserMarker[] = $state([]);
     let markerIdCounter = 0;
     let showMarkerPanel = $state(false);
+    let showMarkerBottomPanel = $state(false);
     let showAddMarkerForm = $state(false);
-    let markerType = $state<UserMarkerType | null>(null); // null = type selector shown
+    let markerType = $state<UserMarkerType | null>(null);
     let pinPointMode = $state(false);
     let newMarkerName = $state("");
     let newMarkerLat = $state("");
@@ -181,10 +185,11 @@
         if (!locationMarker) return;
         if (!dfStore.data) return;
         const { latitude, longitude } = locationStore.data;
-        const dfHeading =  dfStore.data.heading;
+        const dfHeading = dfStore.data.heading;
         const compassHeading = compassStore.data;
         const compassOffset = signalState.compassOffset || 0;
-        const heading = ( 360 + dfHeading + compassHeading + compassOffset ) % 360;
+        const heading =
+            (360 + dfHeading + compassHeading + compassOffset) % 360;
         const hasData =
             latitude !== null &&
             longitude !== null &&
@@ -221,7 +226,7 @@
                 source: "df-line",
                 paint: {
                     "line-color": "#2563eb",
-                    "line-width": 3
+                    "line-width": 3,
                 },
             });
         } else {
@@ -242,14 +247,14 @@
     // --- End DF Heading Line ---
 
     function createLocationElement(): HTMLElement {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'my-location-marker';
+        const wrapper = document.createElement("div");
+        wrapper.className = "my-location-marker";
 
-        const pulse = document.createElement('div');
-        pulse.className = 'my-location-pulse';
+        const pulse = document.createElement("div");
+        pulse.className = "my-location-pulse";
 
-        const dot = document.createElement('div');
-        dot.className = 'my-location-dot';
+        const dot = document.createElement("div");
+        dot.className = "my-location-dot";
 
         wrapper.appendChild(pulse);
         wrapper.appendChild(dot);
@@ -261,7 +266,10 @@
         if (!map) return;
         if (latitude !== null && longitude !== null) {
             if (!locationMarker) {
-                locationMarker = new maplibregl.Marker({ element: createLocationElement(), anchor: 'center' })
+                locationMarker = new maplibregl.Marker({
+                    element: createLocationElement(),
+                    anchor: "center",
+                })
                     .setLngLat([longitude, latitude])
                     .addTo(map);
             } else {
@@ -695,7 +703,10 @@
     }
 
     // --- Marker Functions ---
-    function createCustomMarkerElement(name: string, type: UserMarkerType): HTMLElement {
+    function createCustomMarkerElement(
+        name: string,
+        type: UserMarkerType,
+    ): HTMLElement {
         const el = document.createElement("div");
         const label = document.createElement("div");
         label.className = "custom-marker-label";
@@ -750,7 +761,7 @@
         newMarkerLng = "";
         newMarkerAngle = "";
         removePinPointTempMarker();
-        if (map) map.getCanvas().style.cursor = '';
+        if (map) map.getCanvas().style.cursor = "";
     }
 
     function createPinPointTempElement(): HTMLElement {
@@ -774,26 +785,36 @@
     function togglePinPointMode() {
         pinPointMode = !pinPointMode;
         if (pinPointMode) {
-            if (map) map.getCanvas().style.cursor = 'crosshair';
+            if (map) map.getCanvas().style.cursor = "crosshair";
         } else {
             removePinPointTempMarker();
-            if (map) map.getCanvas().style.cursor = '';
+            if (map) map.getCanvas().style.cursor = "";
         }
     }
 
     // --- Direction Marker Lines ---
-    function addDirectionLine(id: number, lat: number, lng: number, angle: number) {
+    function addDirectionLine(
+        id: number,
+        lat: number,
+        lng: number,
+        angle: number,
+    ) {
         if (!map) return;
         const sourceId = `dir-line-${id}`;
         const layerId = `dir-line-layer-${id}`;
         const endpoint = destinationPoint(lat, lng, angle, 10);
         const geojson: GeoJSON.FeatureCollection = {
             type: "FeatureCollection",
-            features: [{
-                type: "Feature",
-                geometry: { type: "LineString", coordinates: [[lng, lat], endpoint] },
-                properties: {},
-            }],
+            features: [
+                {
+                    type: "Feature",
+                    geometry: {
+                        type: "LineString",
+                        coordinates: [[lng, lat], endpoint],
+                    },
+                    properties: {},
+                },
+            ],
         };
         if (!map.getSource(sourceId)) {
             map.addSource(sourceId, { type: "geojson", data: geojson });
@@ -804,7 +825,9 @@
                 paint: { "line-color": "#2563eb", "line-width": 2.5 },
             });
         } else {
-            (map.getSource(sourceId) as maplibregl.GeoJSONSource).setData(geojson);
+            (map.getSource(sourceId) as maplibregl.GeoJSONSource).setData(
+                geojson,
+            );
         }
     }
 
@@ -862,10 +885,16 @@
             .addTo(map);
         if (type === "direction") {
             const angle = ((parseFloat(newMarkerAngle) % 360) + 360) % 360;
-            userMarkers = [...userMarkers, { id, name, lat, lng, type, angle, mapMarker }];
+            userMarkers = [
+                ...userMarkers,
+                { id, name, lat, lng, type, angle, mapMarker },
+            ];
             addDirectionLine(id, lat, lng, angle);
         } else {
-            userMarkers = [...userMarkers, { id, name, lat, lng, type, mapMarker }];
+            userMarkers = [
+                ...userMarkers,
+                { id, name, lat, lng, type, mapMarker },
+            ];
         }
         removePinPointTempMarker();
         cancelAddMarkerForm();
@@ -946,7 +975,9 @@
         } else {
             updated = { ...existing, name, lat, lng, type, mapMarker };
         }
-        userMarkers = userMarkers.map((m) => (m.id === existing.id ? updated : m));
+        userMarkers = userMarkers.map((m) =>
+            m.id === existing.id ? updated : m,
+        );
         removePinPointTempMarker();
         saveMarkersToStorage();
         cancelAddMarkerForm();
@@ -1001,7 +1032,7 @@
                     pinPointTempMarker.setLngLat(e.lngLat);
                 }
                 pinPointMode = false;
-                map.getCanvas().style.cursor = '';
+                map.getCanvas().style.cursor = "";
             }
         };
         map.on("click", mapClickHandler);
@@ -1012,6 +1043,7 @@
             handleDownloadStatusEvent((payload?.[0] as DownloadEvent) || null),
         );
         fetchBookmarks();
+        findMyLocation();
     });
 
     onDestroy(() => {
@@ -1038,7 +1070,7 @@
 <div class="map-layout">
     <div class="controls">
         <div class="toolbar">
-        <label
+            <label
                 class="toolbar-checkbox satellite"
                 class:active={currentMode === "hybrid"}
             >
@@ -1057,22 +1089,29 @@
                 />
                 <span>Online</span>
             </label>
-        <button class="toolbar-btn" onclick={findMyLocation} aria-label="Find my location">
+            <button
+                class="toolbar-btn"
+                onclick={findMyLocation}
+                aria-label="Find my location"
+            >
                 <div class="my-loc-btn">
                     <div></div>
                 </div>
             </button>
-                <button
+            <button
+                class="toolbar-btn"
+                class:active-state={showMarkerBottomPanel}
+                onclick={() => (showMarkerBottomPanel = !showMarkerBottomPanel)}
+            >Markers</button>
+            <button
                 class="toolbar-btn"
                 class:active-state={showDownloadPanel}
                 disabled={isDownloading}
                 onclick={() => toggleDownloadPanel(downloadTab)}
             >
-                Download Maps
+                Maps Download
             </button>
-            
-            
-            
+
             <div class="toolbar-indicator">Zoom {currentZoom.toFixed(2)}</div>
         </div>
         {#if completionNotice}
@@ -1085,13 +1124,17 @@
                     <button
                         class="dl-tab"
                         class:active={downloadTab === "download"}
-                        onclick={() => { downloadTab = "download"; syncMinZoomWithCurrent(); }}
-                    >Download</button>
+                        onclick={() => {
+                            downloadTab = "download";
+                            syncMinZoomWithCurrent();
+                        }}>Download</button
+                    >
                     <button
                         class="dl-tab"
                         class:active={downloadTab === "bookmarks"}
-                        onclick={() => downloadTab = "bookmarks"}
-                    >Saved Maps</button>
+                        onclick={() => (downloadTab = "bookmarks")}
+                        >Saved Maps</button
+                    >
                 </div>
 
                 {#if downloadTab === "download"}
@@ -1162,10 +1205,18 @@
                             <div class="bookmark-empty">No saved maps yet.</div>
                         {:else}
                             {#each bookmarks as b}
-                                <button class="bookmark-btn" onclick={() => goToBookmark(b)}>
-                                    <span class="bookmark-title">{b.title || "Untitled download"}</span>
+                                <button
+                                    class="bookmark-btn"
+                                    onclick={() => goToBookmark(b)}
+                                >
+                                    <span class="bookmark-title"
+                                        >{b.title || "Untitled download"}</span
+                                    >
                                     <span class="bookmark-meta">
-                                        {b.style} | Zoom: {b.min_zoom}–{b.max_zoom} | [{b.center_lat.toFixed(4)}, {b.center_lng.toFixed(4)}]
+                                        {b.style} | Zoom: {b.min_zoom}–{b.max_zoom}
+                                        | [{b.center_lat.toFixed(4)}, {b.center_lng.toFixed(
+                                            4,
+                                        )}]
                                     </span>
                                 </button>
                             {/each}
@@ -1196,12 +1247,18 @@
     </div>
 
     <!-- Marker Bottom Panel -->
+    {#if showMarkerBottomPanel}
     <div class="marker-bottom-panel" class:pinpointing={pinPointMode}>
         <div class="marker-panel-header">
-            <span class="marker-panel-title">Markers ({userMarkers.length})</span>
+            <span class="marker-panel-title"
+                >Markers ({userMarkers.length})</span
+            >
             <div class="marker-panel-actions">
                 {#if !showAddMarkerForm}
-                    <button class="marker-action-btn add" onclick={openAddMarkerForm}>
+                    <button
+                        class="marker-action-btn add"
+                        onclick={openAddMarkerForm}
+                    >
                         + Add Marker
                     </button>
                 {/if}
@@ -1221,25 +1278,45 @@
                 {#if markerType === null}
                     <!-- Step 1: choose marker type -->
                     <div class="marker-type-selector">
-                        <span class="marker-type-label">Select marker type:</span>
+                        <span class="marker-type-label"
+                            >Select marker type:</span
+                        >
                         <div class="marker-type-btns">
-                            <button class="marker-type-btn point" onclick={() => selectMarkerType("point")}>
+                            <button
+                                class="marker-type-btn point"
+                                onclick={() => selectMarkerType("point")}
+                            >
                                 <span class="mtype-icon">📍</span>
                                 <span class="mtype-name">Point Marker</span>
-                                <span class="mtype-desc">Marks a place on the map</span>
+                                <span class="mtype-desc"
+                                    >Marks a place on the map</span
+                                >
                             </button>
-                            <button class="marker-type-btn direction" onclick={() => selectMarkerType("direction")}>
+                            <button
+                                class="marker-type-btn direction"
+                                onclick={() => selectMarkerType("direction")}
+                            >
                                 <span class="mtype-icon">🧭</span>
                                 <span class="mtype-name">Direction Marker</span>
-                                <span class="mtype-desc">Marks a place with a direction line</span>
+                                <span class="mtype-desc"
+                                    >Marks a place with a direction line</span
+                                >
                             </button>
                         </div>
-                        <button class="marker-action-btn cancel" style="align-self:flex-end" onclick={cancelAddMarkerForm}>Cancel</button>
+                        <button
+                            class="marker-action-btn cancel"
+                            style="align-self:flex-end"
+                            onclick={cancelAddMarkerForm}>Cancel</button
+                        >
                     </div>
                 {:else}
                     <!-- Step 2: fill in the form -->
                     <div class="marker-type-chip {markerType}">
-                        {editingMarkerId !== null ? "✏️ Edit — " : ""}{markerType === "point" ? "📍 Point Marker" : "🧭 Direction Marker"}
+                        {editingMarkerId !== null
+                            ? "✏️ Edit — "
+                            : ""}{markerType === "point"
+                            ? "📍 Point Marker"
+                            : "🧭 Direction Marker"}
                     </div>
                     <input
                         class="marker-input"
@@ -1292,15 +1369,26 @@
                         </label>
                     {/if}
                     {#if pinPointMode}
-                        <div class="pinpoint-hint">Click anywhere on the map to set coordinates</div>
+                        <div class="pinpoint-hint">
+                            Click anywhere on the map to set coordinates
+                        </div>
                     {/if}
                     <div class="form-actions">
                         {#if editingMarkerId !== null}
-                            <button class="marker-action-btn add" onclick={confirmEditMarker}>Save</button>
+                            <button
+                                class="marker-action-btn add"
+                                onclick={confirmEditMarker}>Save</button
+                            >
                         {:else}
-                            <button class="marker-action-btn add" onclick={confirmAddMarker}>Add</button>
+                            <button
+                                class="marker-action-btn add"
+                                onclick={confirmAddMarker}>Add</button
+                            >
                         {/if}
-                        <button class="marker-action-btn cancel" onclick={cancelAddMarkerForm}>Cancel</button>
+                        <button
+                            class="marker-action-btn cancel"
+                            onclick={cancelAddMarkerForm}>Cancel</button
+                        >
                     </div>
                 {/if}
             </div>
@@ -1313,8 +1401,15 @@
                 {:else}
                     {#each userMarkers as m}
                         <div class="marker-list-item">
-                            <button class="marker-name-btn" onclick={() => flyToMarker(m)}>
-                                <span class="marker-list-icon">{m.type === "direction" ? "🧭" : "📍"}</span>
+                            <button
+                                class="marker-name-btn"
+                                onclick={() => flyToMarker(m)}
+                            >
+                                <span class="marker-list-icon"
+                                    >{m.type === "direction"
+                                        ? "🧭"
+                                        : "📍"}</span
+                                >
                                 <span class="marker-list-name">{m.name}</span>
                                 <span class="marker-list-coords">
                                     {m.lat.toFixed(4)}, {m.lng.toFixed(4)}
@@ -1326,19 +1421,20 @@
                             <button
                                 class="marker-edit-btn"
                                 onclick={() => openEditMarkerForm(m)}
-                                aria-label="Edit marker {m.name}"
-                            >✎</button>
+                                aria-label="Edit marker {m.name}">✎</button
+                            >
                             <button
                                 class="marker-remove-btn"
                                 onclick={() => removeUserMarker(m.id)}
-                                aria-label="Remove marker {m.name}"
-                            >✕</button>
+                                aria-label="Remove marker {m.name}">✕</button
+                            >
                         </div>
                     {/each}
                 {/if}
             </div>
         {/if}
     </div>
+    {/if}
     <!-- End Marker Bottom Panel -->
 </div>
 
@@ -1352,7 +1448,7 @@
         position: absolute;
         inset: -8px;
         border-radius: 50%;
-        background: rgba(37, 99, 235, 0.20);
+        background: rgba(37, 99, 235, 0.2);
         animation: location-pulse 2s ease-out infinite;
     }
     :global(.my-location-dot) {
@@ -1361,12 +1457,21 @@
         border-radius: 50%;
         background: #2563eb;
         border: 3px solid #ffffff;
-        box-shadow: 0 1px 6px rgba(0,0,0,0.35);
+        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
     }
     @keyframes location-pulse {
-        0%   { transform: scale(0.6); opacity: 1; }
-        80%  { transform: scale(1.8); opacity: 0; }
-        100% { transform: scale(1.8); opacity: 0; }
+        0% {
+            transform: scale(0.6);
+            opacity: 1;
+        }
+        80% {
+            transform: scale(1.8);
+            opacity: 0;
+        }
+        100% {
+            transform: scale(1.8);
+            opacity: 0;
+        }
     }
 
     /* Download panel tabs */
@@ -1386,7 +1491,9 @@
         font-weight: 600;
         color: #64748b;
         cursor: pointer;
-        transition: color 0.15s ease, border-color 0.15s ease;
+        transition:
+            color 0.15s ease,
+            border-color 0.15s ease;
     }
     .dl-tab.active {
         color: #2563eb;
@@ -1778,7 +1885,9 @@
         font-size: 12px;
         font-weight: 600;
         cursor: pointer;
-        transition: background 0.15s ease, color 0.15s ease;
+        transition:
+            background 0.15s ease,
+            color 0.15s ease;
     }
 
     .marker-action-btn.add {
@@ -1860,7 +1969,9 @@
         font-weight: 600;
         cursor: pointer;
         white-space: nowrap;
-        transition: background 0.15s ease, color 0.15s ease;
+        transition:
+            background 0.15s ease,
+            color 0.15s ease;
         flex-shrink: 0;
     }
 
@@ -1888,8 +1999,13 @@
     }
 
     @keyframes hint-pulse {
-        0%, 100% { opacity: 1; }
-        50%       { opacity: 0.6; }
+        0%,
+        100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.6;
+        }
     }
 
     .form-actions {
@@ -2004,7 +2120,9 @@
         border-radius: 50%;
         background: #f97316;
         border: 2px solid #ffffff;
-        box-shadow: 0 0 0 2px #f97316, 0 1px 6px rgba(0,0,0,0.4);
+        box-shadow:
+            0 0 0 2px #f97316,
+            0 1px 6px rgba(0, 0, 0, 0.4);
     }
     /* ---- end temporary marker style ---- */
 
@@ -2029,7 +2147,7 @@
         border-radius: 50% 50% 50% 0;
         background: #ef4444;
         border: 2px solid #ffffff;
-        box-shadow: 0 1px 6px rgba(0,0,0,0.4);
+        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
         transform: rotate(-45deg);
         flex-shrink: 0;
     }
@@ -2050,17 +2168,17 @@
         border-radius: 50%;
         transform: none;
         border: 2px solid #ffffff;
-        box-shadow: 0 1px 6px rgba(0,0,0,0.4);
+        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
     }
 
     :global(.custom-marker-label) {
-        background: rgba(255,255,255,0.92);
+        background: rgba(255, 255, 255, 0.92);
         color: #0f172a;
         font-size: 11px;
         font-weight: 600;
         padding: 2px 6px;
         border-radius: 4px;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
         white-space: nowrap;
         max-width: 120px;
         overflow: hidden;
@@ -2097,7 +2215,9 @@
         border: 2px solid #e2e8f0;
         background: #f8fafc;
         cursor: pointer;
-        transition: border-color 0.15s ease, background 0.15s ease;
+        transition:
+            border-color 0.15s ease,
+            background 0.15s ease;
     }
 
     .marker-type-btn:hover {
