@@ -12,6 +12,11 @@ body {
     background-color: black;
     padding: 0;
     margin: 0;
+    -webkit-app-region: no-drag;
+}
+
+html, #app, main {
+    -webkit-app-region: no-drag;
 }
 
 input::-webkit-outer-spin-button,
