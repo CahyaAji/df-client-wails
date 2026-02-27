@@ -63,10 +63,6 @@ class DFStore {
         }
     }
 
-    // Serialized poll: only one fetch is ever in-flight at a time.
-    // Next request starts only AFTER the previous one resolves/rejects,
-    // preventing Chromium's connection pool from filling up with stalled
-    // TCP connections to an unreachable host.
     async #poll() {
         if (!this.#running) return;
         await this.fetch();
