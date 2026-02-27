@@ -34,9 +34,7 @@
   {#if DFPanelComponent}
     <DFPanelComponent />
   {:else}
-    <div class="dfpanel-placeholder">
-      <div class="dfpanel-loading">Loading…</div>
-    </div>
+    <div class="dfpanel-loading">Loading…</div>
   {/if}
 </main>
 
@@ -46,20 +44,12 @@
     flex-direction: column;
     height: 100vh;
     width: 100vw;
+    overflow: hidden;
   }
 
   .map-placeholder {
     flex: 1;
     background: #f0f0f0;
-  }
-
-  /* Mirrors DFPanel's absolute position so there's no layout shift */
-  .dfpanel-placeholder {
-    position: absolute;
-    top: 50px;
-    right: 8px;
-    width: 0;
-    height: 0;
   }
 
   .dfpanel-loading {
@@ -70,5 +60,8 @@
     font-size: 13px;
     border-radius: 6px;
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+    position: fixed;
+    top: 50px;
+    right: 8px;
   }
 </style>

@@ -308,7 +308,13 @@
 <div class="container">
     <div style="width: 100%;">
         <div class="title">
-            <button style="margin-left: 4px;" onclick={() => (isStatusOpen = !isStatusOpen)}>
+            <button
+                style="margin-left: 4px;"
+                onclick={() => {
+                    console.log("DFPanel status toggle", { isStatusOpen });
+                    isStatusOpen = !isStatusOpen;
+                }}
+            >
                 {isStatusOpen ? "︽" : "︾"}
             </button>
             <div style="margin: 6px 4px;">Status</div>
@@ -317,14 +323,20 @@
             <iframe
                 class="webview"
                 src={`${API_URL}/config`}
-                title="Example website"
+                title="Status"
                 style="width: 290px; margin: auto; padding-left: 13px; height: 184px; border: none; overflow-x: hidden; background-color: rgba(4, 61, 15, 0.2);"
             ></iframe>
         {/if}
     </div>
     <div style="width: 100%;">
         <div class="title">
-            <button style="margin-left: 4px;" onclick={() => (isPlotOpen = !isPlotOpen)}>
+            <button
+                style="margin-left: 4px;"
+                onclick={() => {
+                    console.log("DFPanel plot toggle", { isPlotOpen });
+                    isPlotOpen = !isPlotOpen;
+                }}
+            >
                 {isPlotOpen ? "︽" : "︾"}
             </button>
             <div style="margin: 6px 4px;">Plot</div>
@@ -335,7 +347,13 @@
     </div>
     <div style="width: 100%;">
         <div class="title">
-            <button style="margin-left: 4px;" onclick={() => (isSettingsOpen = !isSettingsOpen)}>
+            <button
+                style="margin-left: 4px;"
+                onclick={() => {
+                    console.log("DFPanel settings toggle", { isSettingsOpen });
+                    isSettingsOpen = !isSettingsOpen;
+                }}
+            >
                 {isSettingsOpen ? "︽" : "︾"}
             </button>
             <div style="margin: 6px 4px;">Settings</div>
@@ -349,17 +367,29 @@
 <style>
     .container {
         border-radius: 10px;
-        position: absolute;
+        position: fixed;
+        top: 8px;
+        right: 8px;
         display: flex;
         flex-direction: column;
-        top: 6px;
-        right: 8px;
         gap: 1px;
         box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
         border: 1px solid rgba(0, 0, 0, 0.1);
         overflow: hidden;
-        align-items: center;
+        align-items: stretch;
         background-color: transparent;
+        touch-action: manipulation;
+        z-index: 12000;
+        pointer-events: auto;
+        -webkit-app-region: no-drag;
+    }
+    .container > div {
+        touch-action: manipulation;
+        font-size: 14px;
+        font-weight: 500;
+        color: #1e293b;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        user-select: none;
     }
     .title {
         border-bottom: 1px solid black;
@@ -369,11 +399,13 @@
         background-color: rgba(4, 61, 15, 0.6);
         color: white;
         font-size: 13pt;
+        pointer-events: auto;
+        -webkit-app-region: no-drag;
     }
-    .container > div {
-        font-size: 14px;
-        font-weight: 500;
-        color: #1e293b;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    .title button {
+        pointer-events: auto;
+        touch-action: manipulation;
+        cursor: pointer;
+        -webkit-app-region: no-drag;
     }
 </style>
