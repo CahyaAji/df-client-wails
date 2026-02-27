@@ -40,9 +40,9 @@
 
     function goToBookmark(b: (typeof bookmarks)[number]) {
         if (map) {
-            switchStyle(b.style as "normal" | "hybrid");
             map.setCenter([b.center_lng, b.center_lat]);
             map.setZoom(b.min_zoom);
+            switchStyle(b.style === "hybrid" ? "hybrid" : "normal");
         }
     }
 
@@ -183,18 +183,24 @@
     function updateDFLine() {
         if (!map) return;
         if (!locationMarker) return;
-        if (!dfStore.data) return;
-        const { latitude, longitude } = locationStore.data;
-        const dfHeading = dfStore.data.heading;
-        const compassHeading = compassStore.data;
+
+        // Default to null if stores or data are not ready
+        const { latitude, longitude } = locationStore.data ?? {};
+        const dfHeading = dfStore.data?.heading ?? null;
+        const compassHeading = compassStore.data ?? null;
         const compassOffset = signalState.compassOffset || 0;
+
+        // Calculate effective heading only if all components are valid numbers
         const heading =
-            (360 + dfHeading + compassHeading + compassOffset) % 360;
+            dfHeading !== null && compassHeading !== null
+                ? (360 + dfHeading + compassHeading + compassOffset) % 360
+                : null;
+
         const hasData =
-            latitude !== null &&
-            longitude !== null &&
-            heading !== undefined &&
+            latitude != null &&
+            longitude != null &&
             heading !== null;
+
         const geojson: GeoJSON.FeatureCollection = hasData
             ? {
                   type: "FeatureCollection",
@@ -217,8 +223,14 @@
                       },
                   ],
               }
-            : { type: "FeatureCollection", features: [] };
-        if (!map.getSource("df-line")) {
+            : { type: "FeatureCollection", features: [] }; // Empty features if no data
+
+        // Always update the source
+        const source = map.getSource("df-line") as maplibregl.GeoJSONSource;
+        if (source) {
+            source.setData(geojson);
+        } else {
+            // If source doesn't exist, create it (happens on first run)
             map.addSource("df-line", { type: "geojson", data: geojson });
             map.addLayer({
                 id: "df-line-layer",
@@ -229,10 +241,6 @@
                     "line-width": 3,
                 },
             });
-        } else {
-            (map.getSource("df-line") as maplibregl.GeoJSONSource).setData(
-                geojson,
-            );
         }
     }
 
@@ -416,7 +424,15 @@
         activePointerId = null;
     }
 
+    // Debounce timestamps — prevent double-firing on Windows touchscreens
+    // where both pointer/touch events and synthesized mouse clicks are dispatched.
+    let _lastDownloadToggleMs = 0;
+    let _lastMarkerToggleMs = 0;
+
     function toggleDownloadPanel(tab: "download" | "bookmarks" = "download") {
+        const now = Date.now();
+        if (now - _lastDownloadToggleMs < 350) return;
+        _lastDownloadToggleMs = now;
         if (showDownloadPanel && downloadTab === tab) {
             // clicking the same tab's trigger closes the panel
             showDownloadPanel = false;
@@ -426,6 +442,13 @@
             downloadTab = tab;
             if (tab === "download") syncMinZoomWithCurrent();
         }
+    }
+
+    function toggleMarkerBottomPanel() {
+        const now = Date.now();
+        if (now - _lastMarkerToggleMs < 350) return;
+        _lastMarkerToggleMs = now;
+        showMarkerBottomPanel = !showMarkerBottomPanel;
     }
 
     function beginSelection() {
@@ -1105,7 +1128,7 @@
                 aria-label="Show Markers"
                 class="toolbar-btn"
                 class:active-state={showMarkerBottomPanel}
-                onclick={() => (showMarkerBottomPanel = !showMarkerBottomPanel)}
+                onclick={toggleMarkerBottomPanel}
                 ><svg
                     width="20"
                     height="20"
@@ -1122,12 +1145,18 @@
                 class="toolbar-btn"
                 class:active-state={showDownloadPanel}
                 disabled={isDownloading}
-                onclick={() => toggleDownloadPanel(downloadTab)}
+                onclick={() => {
+                    console.log("Maps Download clicked", {
+                        isDownloading,
+                        showDownloadPanel,
+                    });
+                    toggleDownloadPanel(downloadTab);
+                }}
             >
                 Maps Download
             </button>
 
-            <div class="toolbar-indicator">Zoom {currentZoom.toFixed(2)}</div>
+            <div class="toolbar-indicator">Zoom {currentZoom.toFixed(1)}</div>
         </div>
         {#if completionNotice}
             <div class="notice">{completionNotice}</div>
@@ -1503,27 +1532,6 @@
         margin: 0 -10px 8px;
         padding: 0 10px;
     }
-    .dl-tab {
-        flex: 1;
-        background: none;
-        border: none;
-        border-bottom: 2px solid transparent;
-        padding: 6px 4px;
-        font-size: 12px;
-        font-weight: 600;
-        color: #64748b;
-        cursor: pointer;
-        transition:
-            color 0.15s ease,
-            border-color 0.15s ease;
-    }
-    .dl-tab.active {
-        color: #2563eb;
-        border-bottom-color: #2563eb;
-    }
-    .dl-tab:hover:not(.active) {
-        color: #0f172a;
-    }
     .bookmark-list-inner {
         display: flex;
         flex-direction: column;
@@ -1572,14 +1580,15 @@
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        border: 1px solid #ccc;
         position: relative;
+        -webkit-app-region: no-drag;
     }
 
     .map-container {
         flex-grow: 1;
         width: 100%;
         height: 100%;
+        -webkit-app-region: no-drag;
     }
 
     .map-container.selecting {
@@ -1590,95 +1599,124 @@
     /* Floating Controls */
     .controls {
         position: absolute;
-        top: 6px;
-        left: 8px;
-        z-index: 10;
+        top: 10px;
+        left: 10px;
+        z-index: 12000;
         display: flex;
         flex-direction: column;
-        gap: 8px;
-        align-items: flex-start;
-        pointer-events: none;
-    }
-
-    .controls > * {
+        gap: 6px;
+        align-items: stretch;
+        padding: 4px;
+        width: 280px;
+        max-width: 90vw;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(6px);
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        -webkit-app-region: no-drag;
         pointer-events: auto;
     }
 
     .toolbar {
-        display: inline-flex;
-        flex-direction: row;
-        align-items: stretch;
-        gap: 0;
-        flex-wrap: nowrap;
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 999px;
-        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
-        border: 1px solid rgba(0, 0, 0, 0.1);
-        overflow: hidden;
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+        background: rgba(248, 250, 252, 0.5);
+        border-radius: 12px;
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.7),
+            0 6px 16px rgba(15, 23, 42, 0.08);
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        padding: 6px;
+        pointer-events: auto;
+        -webkit-app-region: no-drag;
+    }
+
+    .toolbar > * {
+        width: auto;
+        min-width: 0;
     }
 
     .toolbar-btn,
-    .toolbar-indicator {
-        border: none;
-        background: transparent;
-        padding: 8px;
+    .toolbar-indicator,
+    .toolbar-checkbox {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         gap: 6px;
-        cursor: pointer;
+        height: 34px;
+        padding: 0 10px;
+        border-radius: 10px;
+        background: #ffffff;
+        border: 1px solid rgba(148, 163, 184, 0.45);
         color: #0f172a;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
         transition:
             background 0.15s ease,
-            color 0.15s ease;
+            color 0.15s ease,
+            border-color 0.15s ease,
+            box-shadow 0.15s ease;
     }
 
-    .toolbar > * + * {
-        border-left: 1px solid rgba(15, 23, 42, 0.1);
+    .toolbar-btn {
+        cursor: pointer;
+        touch-action: manipulation;
     }
 
-    .toolbar-btn:hover {
-        background: rgba(15, 23, 42, 0.06);
+    .toolbar-btn:hover,
+    .toolbar-checkbox:hover {
+        background: #f1f5f9;
+        border-color: rgba(59, 130, 246, 0.4);
+        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.12);
     }
 
     .toolbar-btn:disabled {
-        opacity: 0.5;
+        opacity: 0.6;
         cursor: not-allowed;
+        background: #eef2f7;
+        border-color: rgba(148, 163, 184, 0.45);
+        box-shadow: none;
     }
 
     .toolbar-btn.active-state {
-        background: rgba(37, 99, 235, 0.15);
+        background: #e8f0ff;
+        border-color: #93c5fd;
         color: #1d4ed8;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.16);
     }
 
     .toolbar-checkbox {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 0 8px;
         cursor: pointer;
-        color: #0f172a;
         user-select: none;
-        background: transparent;
+        padding: 0 10px;
     }
 
     .toolbar-checkbox input {
-        width: 16px;
-        height: 16px;
-        accent-color: #22c55e;
+        width: 14px;
+        height: 14px;
+        accent-color: #0ea5e9;
         cursor: pointer;
     }
 
     .toolbar-checkbox span {
         pointer-events: none;
+        font-size: 13px;
+        font-weight: 600;
     }
 
     .toolbar-checkbox.active {
-        color: white;
+        color: #0f172a;
     }
 
     .toolbar-checkbox.online.active {
-        background: #22c55e;
+        background: #e7f9ef;
+        border-color: #34d399;
+        color: #065f46;
     }
 
     .toolbar-checkbox.satellite input {
@@ -1686,15 +1724,17 @@
     }
 
     .toolbar-checkbox.satellite.active {
-        background: #6366f1;
+        background: #eef2ff;
+        border-color: #a5b4fc;
+        color: #312e81;
     }
 
     .toolbar-indicator {
-        padding: 0 8px;
-        font-size: 13px;
-        color: #1e293b;
-        min-width: 70px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #475569;
         cursor: default;
+        letter-spacing: 0.01em;
     }
 
     .download-btn {
@@ -1726,14 +1766,20 @@
     }
 
     .download-menu {
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 6px;
-        padding: 10px;
-        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+        position: relative;
+        z-index: 2;
+        background: rgba(255, 255, 255, 0.5);
+        border-radius: 10px;
+        padding: 12px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
         display: flex;
         flex-direction: column;
         gap: 10px;
-        width: 240px;
+        width: 100%;
+        box-sizing: border-box;
+        touch-action: manipulation;
+        pointer-events: auto;
+        -webkit-app-region: no-drag;
     }
     .my-loc-btn {
         width: 18px;
@@ -1859,7 +1905,7 @@
         bottom: 0;
         left: 0;
         right: 0;
-        z-index: 10;
+        z-index: 14000;
         background: rgba(255, 255, 255, 0.97);
         border-top: 1px solid rgba(0, 0, 0, 0.1);
         box-shadow: 0 -3px 10px rgba(0, 0, 0, 0.12);
@@ -1868,6 +1914,7 @@
         gap: 0;
         max-height: 55vh;
         transition: max-height 0.2s ease;
+        touch-action: manipulation;
     }
 
     .marker-bottom-panel.pinpointing {
