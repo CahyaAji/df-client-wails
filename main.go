@@ -151,6 +151,9 @@ func main() {
 		Title:  "DF",
 		Width:  820,
 		Height: 720,
+		Debug: options.Debug{
+			OpenInspectorOnStartup: false,
+		},
 		Windows: &windows.Options{
 			// Persist the WebView2 profile so the browser engine is fully cached
 			// between launches — this is what makes 'wails dev' feel faster.
@@ -160,6 +163,15 @@ func main() {
 			Assets: assets,
 			Middleware: func(next http.Handler) http.Handler {
 				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					// --- CORS headers for development ---
+					w.Header().Set("Access-Control-Allow-Origin", "*")
+					w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+					w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+					if r.Method == "OPTIONS" {
+						w.WriteHeader(http.StatusOK)
+						return
+					}
+
 					// Check if the request starts with "/tiles/"
 					// Format expected: /tiles/{style}/{z}/{x}/{y}.png
 					if strings.HasPrefix(r.URL.Path, "/tiles/") {

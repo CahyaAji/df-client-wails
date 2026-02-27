@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -99,6 +101,45 @@ func (a *App) SetGPSLocation(lat, lng float64) error {
 func (a *App) SetUTMLocation(zone, easting, northing, co string) error {
 	appConfig.UTMLocation = UTMLocation{Zone: zone, Easting: easting, Northing: northing, Co: co}
 	return saveConfig()
+}
+
+// ProxyGetRequest performs a GET request to the given URL and returns the response body as a string.
+func (a *App) ProxyGetRequest(url string) (string, error) {
+	client := http.Client{
+		Timeout: 3 * time.Second,
+	}
+	resp, err := client.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(body), nil
+}
+
+// ProxyPostRequest performs a POST request to the given URL with a JSON body.
+func (a *App) ProxyPostRequest(url string, jsonBody string) (string, error) {
+	client := http.Client{
+		Timeout: 3 * time.Second,
+	}
+	reqBody := []byte(jsonBody)
+	resp, err := client.Post(url, "application/json", bytes.NewBuffer(reqBody))
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(body), nil
 }
 
 // ResetConfig resets all user settings to defaults, keeping the map key

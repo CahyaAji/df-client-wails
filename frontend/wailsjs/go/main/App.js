@@ -22,6 +22,14 @@ export function ListBookmarks() {
   return window['go']['main']['App']['ListBookmarks']();
 }
 
+export function ProxyGetRequest(arg1) {
+  return window['go']['main']['App']['ProxyGetRequest'](arg1);
+}
+
+export function ProxyPostRequest(arg1, arg2) {
+  return window['go']['main']['App']['ProxyPostRequest'](arg1, arg2);
+}
+
 export function ResetConfig() {
   return window['go']['main']['App']['ResetConfig']();
 }

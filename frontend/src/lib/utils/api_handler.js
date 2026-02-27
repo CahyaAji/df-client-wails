@@ -1,30 +1,11 @@
+import { ProxyGetRequest, ProxyPostRequest } from "../../../wailsjs/go/main/App";
+
 // export const API_URL = "http://localhost:3000";
 export const API_URL = "http://192.168.17.17:8087";
 
-// All requests to the DF device use a short timeout so a missing/unreachable
-// device never stalls startup for more than FETCH_TIMEOUT_MS milliseconds.
-const FETCH_TIMEOUT_MS = 3000;
-
-/**
- * fetch() wrapper that aborts after FETCH_TIMEOUT_MS milliseconds.
- * @param {string} url
- * @param {RequestInit} [options]
- * @returns {Promise<Response>}
- */
-function fetchWithTimeout(url, options = {}) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  return fetch(url, { ...options, signal: controller.signal })
-    .finally(() => clearTimeout(timer));
-}
-
 export const readDF = async () => {
   try {
-    const response = await fetchWithTimeout(`${API_URL}/df`);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    const resText = await response.text();
+    const resText = await ProxyGetRequest(`${API_URL}/df`);
     if (!resText || resText.trim() === "") {
       throw new Error("DF data is empty");
     }
@@ -42,6 +23,7 @@ export const readDF = async () => {
       power: dataArray[3].trim(),
       polar: dataArray.slice(17, 377).map(Number).reverse(),
     };
+    console.log("headinggggg: ", data.heading);
     return { success: true, data };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) };
@@ -55,19 +37,9 @@ export const setAntenna = async (/** @type {number} */ antSpace) => {
   }
 
   try {
-    const response = await fetchWithTimeout(API_URL + "/api/ant/" + typeAnt, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-    if (response.status === 200) {
-      const jsonResponse = await response.json();
-      return { success: true, data: jsonResponse };
-    } else {
-      const errorText = await response.text();
-      return { success: false, error: `${response.status}: ${errorText}` };
-    }
+    const response = await ProxyGetRequest(API_URL + "/api/ant/" + typeAnt);
+    const jsonResponse = JSON.parse(response);
+    return { success: true, data: jsonResponse };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
@@ -77,21 +49,9 @@ export const setFreqGainApi = async (
   /** @type {{center_freq: number, uniform_gain: number, ant_spacing_meters: number}} */ data
 ) => {
   try {
-    const response = await fetchWithTimeout(`${API_URL}/api/settings/freq`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
-
-    if (response.ok) {
-      const jsonResponse = await response.json();
-      return { success: true, data: jsonResponse };
-    } else {
-      const errorText = await response.text();
-      return { success: false, error: `HTTP ${response.status}: ${errorText}` };
-    }
+    const response = await ProxyPostRequest(`${API_URL}/api/settings/freq`, JSON.stringify(data));
+    const jsonResponse = JSON.parse(response);
+    return { success: true, data: jsonResponse };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
@@ -99,13 +59,8 @@ export const setFreqGainApi = async (
 
 export const readCompass = async () => {
   try {
-    const response = await fetchWithTimeout(`${API_URL}/api/compass`);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      return { success: false, error: `HTTP ${response.status}: ${errorText}` };
-    }
-    const data = await response.json();
+    const response = await ProxyGetRequest(`${API_URL}/api/compass`);
+    const data = JSON.parse(response);
     return { success: true, data: Number(data.heading) };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) };
@@ -113,8 +68,8 @@ export const readCompass = async () => {
 };
 
 export const getDFSettings = async () => {
-  const response = await fetchWithTimeout(`${API_URL}/api/settings`);
-  const result = await response.json();
+  const response = await ProxyGetRequest(`${API_URL}/api/settings`);
+  const result = JSON.parse(response);
   return {
     center_freq: result.center_freq,
     uniform_gain: result.uniform_gain,
@@ -127,20 +82,9 @@ export const setStationId = async (/** @type {string} */ nameId) => {
     id: nameId,
   };
   try {
-    const response = await fetchWithTimeout(API_URL + "/api/settings/station_id", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(stationId),
-    });
-    if (response.status === 200) {
-      const jsonResponse = await response.json();
-      return { success: true, data: jsonResponse };
-    } else {
-      const errorText = await response.text();
-      return { success: false, error: `${response.status}: ${errorText}` };
-    }
+    const response = await ProxyPostRequest(API_URL + "/api/settings/station_id", JSON.stringify(stationId));
+	const jsonResponse = JSON.parse(response);
+    return { success: true, data: jsonResponse };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
@@ -148,12 +92,7 @@ export const setStationId = async (/** @type {string} */ nameId) => {
 
 export const turnOffDf = async () => {
   try {
-    await fetchWithTimeout(API_URL + "/api/shutdown", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+    await ProxyPostRequest(API_URL + "/api/shutdown", "{}");
   } catch (error) {
     console.error("Error TurnOffDF: ", error);
   } finally {
@@ -165,12 +104,7 @@ export const turnOffDf = async () => {
 
 export const restartDf = async () => {
   try {
-    await fetchWithTimeout(API_URL + "/api/restart", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+    await ProxyPostRequest(API_URL + "/api/restart", "{}");
   } catch (error) {
     console.error("Error RestartDF: ", error);
   } finally {
