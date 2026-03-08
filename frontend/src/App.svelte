@@ -11,7 +11,7 @@
   let DFPanelComponent: Component | null = $state(null);
 
   onMount(async () => {
-    locationStore.fetchGPS();
+    locationStore.fetchGPSExternal();
 
     // Load Maps first — it's visual and has no blocking network calls.
     const { default: Maps } = await import("./lib/component/Maps.svelte");

@@ -23,7 +23,6 @@ export const readDF = async () => {
       power: dataArray[3].trim(),
       polar: dataArray.slice(17, 377).map(Number).reverse(),
     };
-    console.log("headinggggg: ", data.heading);
     return { success: true, data };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) };
@@ -111,5 +110,20 @@ export const restartDf = async () => {
     setTimeout(() => {
       console.log("restarting DF App");
     }, 2000);
+  }
+};
+
+export const readGPSExternal = async () => {
+  try {
+    const response = await fetch(`${API_URL}/api/gps/status`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, error: `HTTP ${response.status}: ${errorText}` };
+    }
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 };

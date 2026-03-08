@@ -10,7 +10,7 @@
     let utmCO = $state("");
 
     function readGPS() {
-        locationStore.fetchGPS();
+        locationStore.fetchGPSExternal();
 
         setTimeout(() => {
             lat = locationStore.data.latitude;
