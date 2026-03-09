@@ -119,7 +119,7 @@
         display: flex;
         justify-content: center;
         gap: 8px;
-        padding: 4px 0;
+        padding: 2px 0;
         background-color: rgba(4, 61, 15, 0.3);
     }
 </style>

@@ -44,7 +44,7 @@
 <style>
   .input-freq {
     padding: 4px 8px;
-    width: 110px;
+    width: 90px;
     text-align: right;
     font-variant-numeric: tabular-nums;
   }

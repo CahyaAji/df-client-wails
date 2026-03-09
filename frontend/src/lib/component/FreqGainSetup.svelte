@@ -194,10 +194,10 @@
   }
   .input-field {
     display: flex;
-    padding: 4px 0 8px 0;
+    padding: 2px 0 8px 0;
   }
   .input-field > button {
-    padding: 4px 18px;
+    padding: 2px 18px;
     margin-left: 2px;
   }
   .input-field > span {
@@ -207,7 +207,7 @@
   .label {
     min-width: 80px;
     align-self: center;
-    padding: 4px 0;
+    padding: 2px 0;
   }
 
   .radio-group {
