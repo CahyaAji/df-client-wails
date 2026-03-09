@@ -73,6 +73,27 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+
+	// Keep launch state normal.
+	runtime.WindowUnmaximise(ctx)
+	// Enforce compact startup size even if the OS/webview profile tries to restore.
+	runtime.WindowSetSize(ctx, 320, 710)
+	runtime.WindowSetPosition(ctx, 1400, 0)
+}
+
+// domReady runs after the webview is ready. On some Windows setups, the
+// restored window state can override startup sizing; retry briefly to force normal.
+func (a *App) domReady(ctx context.Context) {
+	go func() {
+		for i := 0; i < 6; i++ {
+			time.Sleep(150 * time.Millisecond)
+			if runtime.WindowIsMaximised(ctx) {
+				runtime.WindowUnmaximise(ctx)
+			}
+			runtime.WindowSetSize(ctx, 320, 710)
+			runtime.WindowSetPosition(ctx, 1440, 0)
+		}
+	}()
 }
 
 // GetMapKey returns the map API key loaded from config.json
