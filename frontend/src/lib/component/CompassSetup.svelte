@@ -146,7 +146,7 @@
     background-color: rgba(4, 61, 15, 0.5);
     color: white;
     font-size: 13pt;
-    padding: 3px 6px;
+    padding: 2px 6px;
     width: 60px;
     margin: 0 auto;
     margin-bottom: 6px;
@@ -165,7 +165,7 @@
     max-width: 100px;
   }
   .compass-correction > button {
-    padding: 6px 16px;
+    padding: 2px 16px;
   }
   .compass-correction > button:disabled {
     background-color: #ccc;

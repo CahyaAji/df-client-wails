@@ -60,7 +60,7 @@
     background-color: rgba(4, 61, 15, 0.5);
   }
   .navigation > button {
-    padding: 4px 6px;
+    padding: 2px 6px;
     margin: 0;
     cursor: pointer;
     transition: all 0.2s ease;
