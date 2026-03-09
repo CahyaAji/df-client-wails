@@ -68,6 +68,16 @@
         }
     }
 
+    function resetMapView() {
+        if (!map) return;
+        map.easeTo({
+            bearing: 0,
+            pitch: 0,
+            duration: 300,
+            essential: true,
+        });
+    }
+
     let mapContainer: HTMLElement;
     let map: maplibregl.Map;
 
@@ -539,17 +549,13 @@
         }
     }
 
-    function handleOnlineToggle(event: Event) {
-        const target = event.target as HTMLInputElement | null;
-        if (!target) return;
-        offlineMode = !target.checked;
+    function toggleOnlineMode() {
+        offlineMode = !offlineMode;
         applyOfflinePreference();
     }
 
-    function handleSatelliteToggle(event: Event) {
-        const target = event.target as HTMLInputElement | null;
-        if (!target) return;
-        switchStyle(target.checked ? "hybrid" : "normal");
+    function toggleSatelliteMode() {
+        switchStyle(currentMode === "hybrid" ? "normal" : "hybrid");
     }
 
     function handlePointerDown(event: PointerEvent) {
@@ -1096,36 +1102,68 @@
 <div class="map-layout">
     <div class="controls">
         <div class="toolbar">
-            <label
-                class="toolbar-checkbox satellite"
-                class:active={currentMode === "hybrid"}
+            <button
+                class="toolbar-btn satellite-btn"
+                class:active-state={currentMode === "hybrid"}
+                onclick={toggleSatelliteMode}
+                aria-label="Toggle satellite view"
+                title="Satellite"
             >
-                <input
-                    type="checkbox"
-                    checked={currentMode === "hybrid"}
-                    onchange={handleSatelliteToggle}
-                />
-                <span>Satellite</span>
-            </label>
-            <label class="toolbar-checkbox online" class:active={!offlineMode}>
-                <input
-                    type="checkbox"
-                    checked={!offlineMode}
-                    onchange={handleOnlineToggle}
-                />
-                <span>Online</span>
-            </label>
+                <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M4 14l6 6" />
+                    <path d="M9 15l-4 4" />
+                    <path d="M15 9l4-4" />
+                    <path d="M14 4l6 6" />
+                    <path d="M8 13l3 3 5-5-3-3z" />
+                </svg>
+                Satellite
+            </button>
+            <button
+                class="toolbar-btn online-btn hide-button"
+                class:active-state={!offlineMode}
+                onclick={toggleOnlineMode}
+                aria-label="Toggle online tiles"
+                title="Online"
+            >
+                <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M2 12a10 10 0 0 1 20 0" />
+                    <path d="M6 12a6 6 0 0 1 12 0" />
+                    <circle cx="12" cy="16" r="1.5" />
+                </svg>
+            </button>
+            
             <button
                 class="toolbar-btn"
                 onclick={findMyLocation}
                 aria-label="Find my location"
+                title="Find Me"
             >
                 <div class="my-loc-btn">
                     <div></div>
                 </div>
             </button>
+            
             <button
                 aria-label="Show Markers"
+                title="Show Markers"
                 class="toolbar-btn"
                 class:active-state={showMarkerBottomPanel}
                 onclick={toggleMarkerBottomPanel}
@@ -1142,9 +1180,11 @@
                 </svg></button
             >
             <button
-                class="toolbar-btn"
+                class="toolbar-btn download-btn-toggle hide-button"
                 class:active-state={showDownloadPanel}
                 disabled={isDownloading}
+                aria-label="Open maps download"
+                title="Maps Download"
                 onclick={() => {
                     console.log("Maps Download clicked", {
                         isDownloading,
@@ -1153,10 +1193,43 @@
                     toggleDownloadPanel(downloadTab);
                 }}
             >
-                Maps Download
+                <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M12 3v12" />
+                    <path d="M7 10l5 5 5-5" />
+                    <path d="M4 19h16" />
+                </svg>
+            </button>
+            <button
+                class="toolbar-btn reset-btn"
+                onclick={resetMapView}
+                aria-label="Reset map to north-up flat view"
+                title="Reset view"
+            >
+                <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M3 12a9 9 0 1 0 3-6.7" />
+                    <path d="M3 3v5h5" />
+                </svg>
             </button>
 
-            <div class="toolbar-indicator">Zoom {currentZoom.toFixed(1)}</div>
+            <div class="toolbar-indicator hide-button" title="Zoom Value">Z |{currentZoom.toFixed(1)}</div>
         </div>
         {#if completionNotice}
             <div class="notice">{completionNotice}</div>
@@ -1690,43 +1763,44 @@
         box-shadow: 0 4px 12px rgba(59, 130, 246, 0.16);
     }
 
+    .toolbar-btn.satellite-btn.active-state {
+        background: #6366f1;
+        border-color: #4f46e5;
+        color: #ffffff;
+        box-shadow: 0 6px 14px rgba(79, 70, 229, 0.28);
+    }
+
+    .toolbar-btn.online-btn.active-state {
+        background: #10b981;
+        border-color: #059669;
+        color: #ffffff;
+        box-shadow: 0 6px 14px rgba(5, 150, 105, 0.28);
+    }
+
+    .toolbar-btn.reset-btn {
+        color: #334155;
+    }
+
+    .toolbar-btn.reset-btn:hover {
+        border-color: rgba(100, 116, 139, 0.5);
+        box-shadow: 0 4px 10px rgba(51, 65, 85, 0.14);
+    }
+
+    .toolbar-btn.download-btn-toggle.active-state {
+        background: #2563eb;
+        border-color: #1d4ed8;
+        color: #ffffff;
+        box-shadow: 0 6px 14px rgba(37, 99, 235, 0.28);
+    }
+
     .toolbar-checkbox {
         cursor: pointer;
         user-select: none;
         padding: 0 10px;
     }
 
-    .toolbar-checkbox input {
-        width: 14px;
-        height: 14px;
-        accent-color: #0ea5e9;
-        cursor: pointer;
-    }
-
-    .toolbar-checkbox span {
-        pointer-events: none;
-        font-size: 13px;
-        font-weight: 600;
-    }
-
     .toolbar-checkbox.active {
         color: #0f172a;
-    }
-
-    .toolbar-checkbox.online.active {
-        background: #e7f9ef;
-        border-color: #34d399;
-        color: #065f46;
-    }
-
-    .toolbar-checkbox.satellite input {
-        accent-color: #6366f1;
-    }
-
-    .toolbar-checkbox.satellite.active {
-        background: #eef2ff;
-        border-color: #a5b4fc;
-        color: #312e81;
     }
 
     .toolbar-indicator {
@@ -2342,6 +2416,10 @@
         color: #475569;
         display: flex;
         flex-direction: column;
+    }
+
+    .hide-button {
+        display: none;
     }
     /* ---- End Marker Bottom Panel ---- */
 </style>
