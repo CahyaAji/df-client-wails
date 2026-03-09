@@ -39,8 +39,8 @@
   let polarData = $derived(normalizePolarData(dfStore.data?.polar));
   let smoothedPolarData = $derived(smoothCircularData(polarData, 2));
 
-  const width = 260;
-  const height = 260;
+  const width = 210;
+  const height = 210;
   const centerX = width / 2;
   const centerY = height / 2;
   const radius = 100;
