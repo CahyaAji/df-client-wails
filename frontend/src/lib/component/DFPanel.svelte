@@ -7,6 +7,7 @@
         setFreqGainApi,
     } from "../utils/api_handler.js";
     import RelativePlot from "./RelativePlot.svelte";
+    import DetailPlot from "./DetailPlot.svelte";
     import ControlPanel from "./ControlPanel.svelte";
     import { dfStore } from "../store/dfStore.svelte.js";
     import { configStore } from "../store/configStore.svelte.js";
@@ -17,6 +18,7 @@
     let isStatusOpen = $state(true);
     let isPlotOpen = $state(true);
     let isSettingsOpen = $state(true);
+    let plotMode = $state<"relative" | "detail">("relative");
 
     let frequencyDebounceTimer: ReturnType<typeof setTimeout> | null = null;
     const FREQUENCY_DEBOUNCE_MS = 150;
@@ -340,9 +342,25 @@
                 {isPlotOpen ? "︽" : "︾"}
             </button>
             <div style="margin: 6px 4px;">Plot</div>
+            <button
+                class:active-plot={plotMode === "relative"}
+                onclick={() => {
+                    plotMode = "relative";
+                }}>Relative</button
+            >
+            <button
+                class:active-plot={plotMode === "detail"}
+                onclick={() => {
+                    plotMode = "detail";
+                }}>Detail</button
+            >
         </div>
         {#if isPlotOpen}
-            <RelativePlot />
+            {#if plotMode === "relative"}
+                <RelativePlot />
+            {:else}
+                <DetailPlot />
+            {/if}
         {/if}
     </div>
     <div style="width: 100%;">
@@ -368,7 +386,7 @@
     .container {
         border-radius: 10px;
         position: fixed;
-        top: 8px;
+        top: 32px;
         right: 8px;
         display: flex;
         flex-direction: column;
@@ -398,7 +416,7 @@
         gap: 4px;
         background-color: rgba(4, 61, 15, 0.6);
         color: white;
-        font-size: 13pt;
+        font-size: 12pt;
         pointer-events: auto;
         -webkit-app-region: no-drag;
     }
@@ -407,5 +425,12 @@
         touch-action: manipulation;
         cursor: pointer;
         -webkit-app-region: no-drag;
+    }
+
+    .title button.active-plot {
+        background-color: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        border-radius: 4px;
     }
 </style>
