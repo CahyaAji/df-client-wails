@@ -148,9 +148,13 @@ func main() {
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:  "DF",
-		Width:  820,
-		Height: 720,
+		Title:     "DF",
+		MinWidth:  310,
+		MinHeight: 500,
+		Width:     320,
+		Height:    710,
+		// Force a normal window on startup instead of inheriting a maximized state.
+		WindowStartState: options.Normal,
 		Debug: options.Debug{
 			OpenInspectorOnStartup: false,
 		},
@@ -184,7 +188,8 @@ func main() {
 				})
 			},
 		},
-		OnStartup: app.startup,
+		OnStartup:  app.startup,
+		OnDomReady: app.domReady,
 		Bind: []any{
 			app,
 		},
