@@ -1,5 +1,7 @@
 <script>
   import { dfStore } from "../store/dfStore.svelte.js";
+  import { configStore } from "../store/configStore.svelte.js";
+  import { signalState } from "../store/signalState.svelte.js";
 
   /**
    * @param {unknown} rawData
@@ -113,7 +115,16 @@
   let radarPath = $derived(createRadarPath(smoothedPolarData));
 </script>
 
-<div class="chart-wrapper">
+<div
+  class="chart-wrapper"
+  style={dfStore.data &&
+  dfStore.data.heading !== undefined &&
+  dfStore.data.heading !== null
+    ? signalState.currentFreq < 250
+      ? `transform: rotate(${configStore.offsetVhf}deg);`
+      : `transform: rotate(${configStore.offsetUhf}deg);`
+    : ""}
+>
   {#if radarPath}
     <svg {width} {height} class="radar-svg">
       <!-- Grid circles -->
