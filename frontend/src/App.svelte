@@ -10,9 +10,10 @@
   let MapsComponent: Component | null = $state(null);
   let DFPanelComponent: Component | null = $state(null);
   let isMapEnabled = $state(false);
+  let dfPanelRefreshKey = $state(0);
 
   function refreshApp() {
-    window.location.reload();
+    dfPanelRefreshKey += 1;
   }
 
   onMount(async () => {
@@ -45,7 +46,9 @@
   {/if}
 
   {#if DFPanelComponent}
-    <DFPanelComponent />
+    {#key dfPanelRefreshKey}
+      <DFPanelComponent />
+    {/key}
   {:else}
     <div class="dfpanel-loading">Loading…</div>
   {/if}
