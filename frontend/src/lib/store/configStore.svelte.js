@@ -1,5 +1,7 @@
 import {
   GetConfig,
+  SetOffsetUhf,
+  SetOffsetVhf,
   SetCompassOffset,
   SetGPSLocation,
   SetUTMLocation,
@@ -9,6 +11,8 @@ import {
 class ConfigStore {
   mapKey = $state("");
   compassOffset = $state(0);
+  offsetUhf = $state(0);
+  offsetVhf = $state(0);
   gpsLocation = $state({ lat: 0, lng: 0 });
   utmLocation = $state({ zone: "", easting: "", northing: "", co: "" });
 
@@ -28,6 +32,8 @@ class ConfigStore {
     return {
       mapKey: this.mapKey,
       compassOffset: this.compassOffset,
+      offsetUhf: this.offsetUhf,
+      offsetVhf: this.offsetVhf,
       gpsLocation: this.gpsLocation,
       utmLocation: this.utmLocation,
     };
@@ -40,6 +46,8 @@ class ConfigStore {
       const config = await GetConfig();
       this.mapKey = config.map_key ?? "";
       this.compassOffset = config.compass_offset ?? 0;
+      this.offsetUhf = config.offsetUhf ?? 0;
+      this.offsetVhf = config.offsetVhf ?? 0;
       this.gpsLocation = config.gps_location ?? { lat: 0, lng: 0 };
       this.utmLocation = config.utm_location ?? {
         zone: "",
@@ -54,6 +62,42 @@ class ConfigStore {
       console.error("Failed to load settings:", error);
       this.#error = error instanceof Error ? error.message : String(error);
       this.#isLoading = false;
+      return { success: false, error: this.#error };
+    }
+  }
+
+  /**
+   * @param {number} value
+   */
+  async setOffsetUhf(value) {
+    const oldValue = this.offsetUhf;
+    this.offsetUhf = Number(value);
+    try {
+      await SetOffsetUhf(this.offsetUhf);
+      console.log("UHF offset saved:", this.offsetUhf);
+      return { success: true };
+    } catch (error) {
+      this.offsetUhf = oldValue;
+      console.error("Failed to save UHF offset, reverting to:", oldValue);
+      this.#error = error instanceof Error ? error.message : String(error);
+      return { success: false, error: this.#error };
+    }
+  }
+
+  /**
+   * @param {number} value
+   */
+  async setOffsetVhf(value) {
+    const oldValue = this.offsetVhf;
+    this.offsetVhf = Number(value);
+    try {
+      await SetOffsetVhf(this.offsetVhf);
+      console.log("VHF offset saved:", this.offsetVhf);
+      return { success: true };
+    } catch (error) {
+      this.offsetVhf = oldValue;
+      console.error("Failed to save VHF offset, reverting to:", oldValue);
+      this.#error = error instanceof Error ? error.message : String(error);
       return { success: false, error: this.#error };
     }
   }
@@ -123,6 +167,8 @@ class ConfigStore {
 
   async reset() {
     this.compassOffset = 0;
+    this.offsetUhf = 0;
+    this.offsetVhf = 0;
     this.gpsLocation = { lat: 0, lng: 0 };
     this.utmLocation = { zone: "", easting: "", northing: "", co: "" };
     try {

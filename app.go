@@ -112,6 +112,18 @@ func (a *App) SetCompassOffset(value float64) error {
 	return saveConfig()
 }
 
+// SetOffsetUhf saves UHF offset to config.json
+func (a *App) SetOffsetUhf(value float64) error {
+	appConfig.OffsetUhf = value
+	return saveConfig()
+}
+
+// SetOffsetVhf saves VHF offset to config.json
+func (a *App) SetOffsetVhf(value float64) error {
+	appConfig.OffsetVhf = value
+	return saveConfig()
+}
+
 // SetGPSLocation saves GPS coordinates to config.json
 func (a *App) SetGPSLocation(lat, lng float64) error {
 	appConfig.GPSLocation = GPSLocation{Lat: lat, Lng: lng}
@@ -166,6 +178,8 @@ func (a *App) ProxyPostRequest(url string, jsonBody string) (string, error) {
 // ResetConfig resets all user settings to defaults, keeping the map key
 func (a *App) ResetConfig() error {
 	appConfig.CompassOffset = 0
+	appConfig.OffsetUhf = 0
+	appConfig.OffsetVhf = 0
 	appConfig.GPSLocation = GPSLocation{}
 	appConfig.UTMLocation = UTMLocation{}
 	return saveConfig()

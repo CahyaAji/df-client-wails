@@ -43,6 +43,8 @@ type UTMLocation struct {
 type AppConfig struct {
 	MapKey        string      `json:"map_key"`
 	CompassOffset float64     `json:"compass_offset"`
+	OffsetUhf     float64     `json:"offsetUhf"`
+	OffsetVhf     float64     `json:"offsetVhf"`
 	GPSLocation   GPSLocation `json:"gps_location"`
 	UTMLocation   UTMLocation `json:"utm_location"`
 }
