@@ -35,6 +35,8 @@ export namespace main {
 	export class AppConfig {
 	    map_key: string;
 	    compass_offset: number;
+	    offsetUhf: number;
+	    offsetVhf: number;
 	    gps_location: GPSLocation;
 	    utm_location: UTMLocation;
 	
@@ -46,6 +48,8 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.map_key = source["map_key"];
 	        this.compass_offset = source["compass_offset"];
+	        this.offsetUhf = source["offsetUhf"];
+	        this.offsetVhf = source["offsetVhf"];
 	        this.gps_location = this.convertValues(source["gps_location"], GPSLocation);
 	        this.utm_location = this.convertValues(source["utm_location"], UTMLocation);
 	    }

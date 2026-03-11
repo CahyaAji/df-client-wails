@@ -46,6 +46,14 @@ export function SetGPSLocation(arg1, arg2) {
   return window['go']['main']['App']['SetGPSLocation'](arg1, arg2);
 }
 
+export function SetOffsetUhf(arg1) {
+  return window['go']['main']['App']['SetOffsetUhf'](arg1);
+}
+
+export function SetOffsetVhf(arg1) {
+  return window['go']['main']['App']['SetOffsetVhf'](arg1);
+}
+
 export function SetUTMLocation(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['SetUTMLocation'](arg1, arg2, arg3, arg4);
 }
