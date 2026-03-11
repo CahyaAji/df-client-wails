@@ -1,4 +1,7 @@
 import { readDF } from "../utils/api_handler.js";
+// import { configStore } from "./configStore.svelte.js";
+// import { signalState } from "../store/signalState.svelte.js";
+
 
 /**
  * @typedef {Object} DFData
@@ -40,6 +43,13 @@ class DFStore {
                     this.data = result.data;
                     this.lastTimestamp = newTimestamp;
                     console.log("New DF data received, timestamp:", newTimestamp);
+                    // if (signalState.currentFreq > 250) {
+                    //     console.log("offsetUhf applied:", configStore.offsetUhf);
+                    //     this.data.heading += configStore.offsetUhf;
+                    // } else {
+                    //     console.log("offsetVhf applied:", configStore.offsetVhf);
+                    //     this.data.heading += configStore.offsetVhf;
+                    // }
                 } else {
                     console.log("Stale DF data detected, same timestamp:", newTimestamp);
 
