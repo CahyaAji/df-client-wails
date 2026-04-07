@@ -52,6 +52,11 @@ type AppConfig struct {
 var appConfig AppConfig
 
 func configPath() string {
+	// If wails.json exists in the current working directory, we are likely in development mode
+	if _, err := os.Stat("wails.json"); err == nil {
+		return "config.json"
+	}
+	
 	ex, err := os.Executable()
 	if err != nil {
 		return "config.json"

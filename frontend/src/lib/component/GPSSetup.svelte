@@ -9,13 +9,10 @@
     let utmNorthing = $state("");
     let utmCO = $state("");
 
-    function readGPS() {
-        locationStore.fetchGPSExternal();
-
-        setTimeout(() => {
-            lat = locationStore.data.latitude;
-            lng = locationStore.data.longitude;
-        }, 500);
+    async function readGPS() {
+        await locationStore.fetchGPSExternal();
+        lat = locationStore.data.latitude;
+        lng = locationStore.data.longitude;
     }
 
     function setGPS() {

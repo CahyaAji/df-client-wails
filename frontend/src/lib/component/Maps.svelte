@@ -32,7 +32,7 @@
 
     async function fetchBookmarks() {
         try {
-            bookmarks = await ListBookmarks();
+            bookmarks = (await ListBookmarks()) ?? [];
         } catch (e) {
             console.error("Failed to fetch bookmarks", e);
         }
@@ -207,9 +207,7 @@
                 : null;
 
         const hasData =
-            latitude != null &&
-            longitude != null &&
-            heading !== null;
+            latitude != null && longitude != null && heading !== null;
 
         const geojson: GeoJSON.FeatureCollection = hasData
             ? {
@@ -1149,7 +1147,7 @@
                     <circle cx="12" cy="16" r="1.5" />
                 </svg>
             </button>
-            
+
             <button
                 class="toolbar-btn"
                 onclick={findMyLocation}
@@ -1160,7 +1158,7 @@
                     <div></div>
                 </div>
             </button>
-            
+
             <button
                 aria-label="Show Markers"
                 title="Show Markers"
@@ -1190,7 +1188,7 @@
                         isDownloading,
                         showDownloadPanel,
                     });
-                    toggleDownloadPanel(downloadTab);
+                    toggleDownloadPanel("download");
                 }}
             >
                 <svg
@@ -1229,7 +1227,9 @@
                 </svg>
             </button>
 
-            <div class="toolbar-indicator hide-button" title="Zoom Value">Z |{currentZoom.toFixed(1)}</div>
+            <div class="toolbar-indicator hide-button" title="Zoom Value">
+                Z |{currentZoom.toFixed(1)}
+            </div>
         </div>
         {#if completionNotice}
             <div class="notice">{completionNotice}</div>
@@ -1238,7 +1238,6 @@
             <div class="download-menu">
                 <!-- Tab bar -->
                 <div class="dl-tabs">
-                    
                     <button
                         class="dl-tab"
                         class:active={downloadTab === "bookmarks"}
@@ -2418,8 +2417,8 @@
         flex-direction: column;
     }
 
-    .hide-button {
+    /* .hide-button {
         display: none;
-    }
+    } */
     /* ---- End Marker Bottom Panel ---- */
 </style>
