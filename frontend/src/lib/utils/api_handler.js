@@ -1,7 +1,7 @@
 import { ProxyGetRequest, ProxyPostRequest } from "../../../wailsjs/go/main/App";
 
-// export const API_URL = "http://localhost:3000";
-export const API_URL = "http://192.168.17.17:8087";
+export const API_URL = "http://localhost:3000";
+// export const API_URL = "http://192.168.17.17:8087";
 
 export const readDF = async () => {
   try {
@@ -115,14 +115,9 @@ export const restartDf = async () => {
 
 export const readGPSExternal = async () => {
   try {
-    const response = await fetch(`${API_URL}/api/gps/status`);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      return { success: false, error: `HTTP ${response.status}: ${errorText}` };
-    }
-    const data = await response.json();
-    return { success: true, data };
+    const response = await ProxyGetRequest(`${API_URL}/api/gps/status`);
+    const json = JSON.parse(response);
+    return { success: true, data: json.data ?? json };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
