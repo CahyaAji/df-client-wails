@@ -1107,7 +1107,7 @@
                 aria-label="Toggle satellite view"
                 title="Satellite"
             >
-                <svg
+                <!-- <svg
                     width="18"
                     height="18"
                     viewBox="0 0 24 24"
@@ -1122,8 +1122,8 @@
                     <path d="M15 9l4-4" />
                     <path d="M14 4l6 6" />
                     <path d="M8 13l3 3 5-5-3-3z" />
-                </svg>
-                Satellite
+                </svg> -->
+                Satellite View
             </button>
             <button
                 class="toolbar-btn online-btn hide-button"
@@ -1132,7 +1132,7 @@
                 aria-label="Toggle online tiles"
                 title="Online"
             >
-                <svg
+                <!-- <svg
                     width="18"
                     height="18"
                     viewBox="0 0 24 24"
@@ -1145,7 +1145,8 @@
                     <path d="M2 12a10 10 0 0 1 20 0" />
                     <path d="M6 12a6 6 0 0 1 12 0" />
                     <circle cx="12" cy="16" r="1.5" />
-                </svg>
+                </svg> -->
+                Online Maps
             </button>
 
             <button
@@ -1228,7 +1229,7 @@
             </button>
 
             <div class="toolbar-indicator hide-button" title="Zoom Value">
-                Z |{currentZoom.toFixed(1)}
+                Zoom {currentZoom.toFixed(1)}
             </div>
         </div>
         {#if completionNotice}
