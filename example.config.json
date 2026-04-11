@@ -1,0 +1,8 @@
+{
+  "map_key": "your_map_key_here",
+  "compass_offset": 0,
+  "offsetUhf": 0,
+  "offsetVhf": 0,
+  "gps_location": { "lat": 0, "lng": 0 },
+  "utm_location": { "zone": "", "easting": "", "northing": "", "co": "" }
+}
