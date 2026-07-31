@@ -56,7 +56,7 @@ func configPath() string {
 	if _, err := os.Stat("wails.json"); err == nil {
 		return "config.json"
 	}
-	
+
 	ex, err := os.Executable()
 	if err != nil {
 		return "config.json"
@@ -155,7 +155,7 @@ func main() {
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:     "DF",
+		Title:     "Cakranusa DF",
 		MinWidth:  310,
 		MinHeight: 500,
 		Width:     320,
