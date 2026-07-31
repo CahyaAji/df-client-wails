@@ -49,6 +49,9 @@ func (a *App) ListBookmarks() ([]Bookmark, error) {
 		}
 		bookmarks = append(bookmarks, b)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return bookmarks, nil
 }
 
@@ -411,7 +414,7 @@ func (a *App) SendUdpNumber(number int, port int) string {
 	}
 	defer conn.Close()
 
-	_, err = conn.Write([]byte(fmt.Sprintf("%d", number)))
+	_, err = fmt.Fprintf(conn, "%d", number)
 	if err != nil {
 		return fmt.Sprintf("Error sending: %v", err)
 	}
