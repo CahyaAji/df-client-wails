@@ -156,10 +156,10 @@ func main() {
 	// Create application with options
 	err := wails.Run(&options.App{
 		Title:     "Cakranusa DF",
-		MinWidth:  310,
+		MinWidth:  304,
 		MinHeight: 500,
-		Width:     320,
-		Height:    710,
+		Width:     304,
+		Height:    700,
 		// Force a normal window on startup instead of inheriting a maximized state.
 		WindowStartState: options.Normal,
 		Debug: options.Debug{
