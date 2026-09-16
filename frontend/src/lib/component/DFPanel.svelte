@@ -356,11 +356,14 @@
             >
         </div>
         {#if isPlotOpen}
-            {#if plotMode === "relative"}
-                <RelativePlot />
-            {:else}
-                <DetailPlot />
-            {/if}
+            <div class="plot-wrapper">
+                <div class="power-value"> {#if dfStore.data?.power !== undefined && dfStore.data?.power !== null}{dfStore.data?.power} dB{:else}-- dB{/if}</div>
+                {#if plotMode === "relative"}
+                    <RelativePlot />
+                {:else}
+                    <DetailPlot />
+                {/if}
+            </div>
         {/if}
     </div>
     <div style="width: 100%;">
@@ -432,5 +435,16 @@
         color: white;
         border: 1px solid rgba(255, 255, 255, 0.5);
         border-radius: 4px;
+    }
+    .plot-wrapper {
+        position: relative;
+    }
+    .power-value {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        font-size: 14pt;
+        color: darkorange;
+        z-index: 1;
     }
 </style>
