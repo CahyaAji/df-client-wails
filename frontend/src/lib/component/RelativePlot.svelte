@@ -1,11 +1,10 @@
 <script lang="ts">
     import { dfStore } from "../store/dfStore.svelte.js";
-    import { configStore } from "../store/configStore.svelte.js";
-    import { signalState } from "../store/signalState.svelte.js";
 
     console.log("RelativePlot, dfStore data:", dfStore.data);
     console.log("df heading:", dfStore.data?.heading);
 </script>
+
 
 <div class="container">
     {#if dfStore.data && dfStore.data.heading !== undefined && dfStore.data.heading !== null}
