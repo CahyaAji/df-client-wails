@@ -91,6 +91,7 @@
     let downloadTitle = $state("");
     let noticeTimer: ReturnType<typeof setTimeout> | null = null;
     let unsubscribeDownloadEvents: (() => void) | null = null;
+    let mapResizeObserver: ResizeObserver | null = null;
     let currentZoom = $state(14);
     let offlineMode = $state(false);
     let isClearing = $state(false);
@@ -99,27 +100,34 @@
     let locationMarker: maplibregl.Marker | null = null;
 
     // --- User Markers ---
-    type UserMarkerType = "point" | "direction";
+    type MarkerDirection = {
+        id: number;
+        angle: number;
+        color: string;
+    };
     type UserMarker = {
         id: number;
         name: string;
         lat: number;
         lng: number;
-        type: UserMarkerType;
-        angle?: number; // only for direction markers
+        directions: MarkerDirection[];
         mapMarker: maplibregl.Marker;
     };
 
     // Serialisable shape — excludes the live maplibregl.Marker instance
     type StoredMarker = Omit<UserMarker, "mapMarker">;
     const MARKERS_STORAGE_KEY = "df_client_user_markers";
+    const DEFAULT_DIRECTION_COLOR = "#2563eb";
 
     function saveMarkersToStorage() {
         const data: StoredMarker[] = userMarkers.map(
-            ({ id, name, lat, lng, type, angle }) =>
-                angle !== undefined
-                    ? { id, name, lat, lng, type, angle }
-                    : { id, name, lat, lng, type },
+            ({ id, name, lat, lng, directions }) => ({
+                id,
+                name,
+                lat,
+                lng,
+                directions,
+            }),
         );
         localStorage.setItem(MARKERS_STORAGE_KEY, JSON.stringify(data));
     }
@@ -132,16 +140,24 @@
             const data: StoredMarker[] = JSON.parse(raw);
             if (!Array.isArray(data)) return;
             for (const d of data) {
-                const el = createCustomMarkerElement(d.name, d.type);
-                const anchor = d.type === "direction" ? "center" : "bottom";
-                const mapMarker = new maplibregl.Marker({ element: el, anchor })
+                const el = createCustomMarkerElement(d.name);
+                const mapMarker = new maplibregl.Marker({
+                    element: el,
+                    anchor: "center",
+                })
                     .setLngLat([d.lng, d.lat])
                     .addTo(map);
                 userMarkers = [...userMarkers, { ...d, mapMarker }];
-                if (d.type === "direction" && d.angle !== undefined) {
-                    addDirectionLine(d.id, d.lat, d.lng, d.angle);
+                for (const dir of d.directions) {
+                    addDirectionLine(d.id, dir.id, d.lat, d.lng, dir.angle, dir.color);
                 }
                 if (d.id >= markerIdCounter) markerIdCounter = d.id + 1;
+                const maxDirId = d.directions.reduce(
+                    (max, dir) => Math.max(max, dir.id),
+                    0,
+                );
+                if (maxDirId >= directionIdCounter)
+                    directionIdCounter = maxDirId + 1;
             }
         } catch {
             console.warn("Failed to restore markers from localStorage");
@@ -150,15 +166,17 @@
 
     let userMarkers: UserMarker[] = $state([]);
     let markerIdCounter = 0;
+    let directionIdCounter = 0;
     let showMarkerPanel = $state(false);
     let showMarkerBottomPanel = $state(false);
     let showAddMarkerForm = $state(false);
-    let markerType = $state<UserMarkerType | null>(null);
     let pinPointMode = $state(false);
     let newMarkerName = $state("");
     let newMarkerLat = $state("");
     let newMarkerLng = $state("");
-    let newMarkerAngle = $state("");
+    let newMarkerDirections = $state<MarkerDirection[]>([]);
+    let newDirectionAngle = $state("");
+    let newDirectionColor = $state(DEFAULT_DIRECTION_COLOR);
     let mapClickHandler: ((e: maplibregl.MapMouseEvent) => void) | null = null;
     let pinPointTempMarker: maplibregl.Marker | null = null;
     let editingMarkerId = $state<number | null>(null);
@@ -730,28 +748,16 @@
     }
 
     // --- Marker Functions ---
-    function createCustomMarkerElement(
-        name: string,
-        type: UserMarkerType,
-    ): HTMLElement {
+    function createCustomMarkerElement(name: string): HTMLElement {
         const el = document.createElement("div");
         const label = document.createElement("div");
         label.className = "custom-marker-label";
         label.textContent = name;
         const pin = document.createElement("div");
         pin.className = "custom-marker-pin";
-
-        if (type === "direction") {
-            // No label — keeping the element as a pure 0×0 block ensures
-            // MapLibre's anchor:"center" offset is exactly 0,0 at all angles.
-            el.className = "custom-marker direction";
-            el.appendChild(pin);
-        } else {
-            // Label on top, teardrop pin below; anchor:"bottom" maps to pin tip
-            el.className = "custom-marker";
-            el.appendChild(label);
-            el.appendChild(pin);
-        }
+        el.className = "custom-marker";
+        el.appendChild(pin);
+        el.appendChild(label);
         return el;
     }
 
@@ -765,30 +771,51 @@
 
     function openAddMarkerForm() {
         showAddMarkerForm = true;
-        markerType = null; // show type selector first
         editingMarkerId = null;
         newMarkerName = "";
         newMarkerLat = "";
         newMarkerLng = "";
-        newMarkerAngle = "";
+        newMarkerDirections = [];
+        newDirectionAngle = "";
+        newDirectionColor = DEFAULT_DIRECTION_COLOR;
         pinPointMode = false;
-    }
-
-    function selectMarkerType(t: UserMarkerType) {
-        markerType = t;
     }
 
     function cancelAddMarkerForm() {
         showAddMarkerForm = false;
-        markerType = null;
         editingMarkerId = null;
         pinPointMode = false;
         newMarkerName = "";
         newMarkerLat = "";
         newMarkerLng = "";
-        newMarkerAngle = "";
+        newMarkerDirections = [];
+        newDirectionAngle = "";
+        newDirectionColor = DEFAULT_DIRECTION_COLOR;
         removePinPointTempMarker();
         if (map) map.getCanvas().style.cursor = "";
+    }
+
+    function addDirectionToForm() {
+        const angle = parseFloat(newDirectionAngle);
+        if (isNaN(angle)) {
+            alert("Please enter a valid angle (0–360°).");
+            return;
+        }
+        directionIdCounter++;
+        newMarkerDirections = [
+            ...newMarkerDirections,
+            {
+                id: directionIdCounter,
+                angle: ((angle % 360) + 360) % 360,
+                color: newDirectionColor,
+            },
+        ];
+        newDirectionAngle = "";
+        newDirectionColor = DEFAULT_DIRECTION_COLOR;
+    }
+
+    function removeDirectionFromForm(id: number) {
+        newMarkerDirections = newMarkerDirections.filter((d) => d.id !== id);
     }
 
     function createPinPointTempElement(): HTMLElement {
@@ -821,14 +848,16 @@
 
     // --- Direction Marker Lines ---
     function addDirectionLine(
-        id: number,
+        markerId: number,
+        directionId: number,
         lat: number,
         lng: number,
         angle: number,
+        color: string,
     ) {
         if (!map) return;
-        const sourceId = `dir-line-${id}`;
-        const layerId = `dir-line-layer-${id}`;
+        const sourceId = `dir-line-${markerId}-${directionId}`;
+        const layerId = `dir-line-layer-${markerId}-${directionId}`;
         const endpoint = destinationPoint(lat, lng, angle, 10);
         const geojson: GeoJSON.FeatureCollection = {
             type: "FeatureCollection",
@@ -849,7 +878,7 @@
                 id: layerId,
                 type: "line",
                 source: sourceId,
-                paint: { "line-color": "#2563eb", "line-width": 2.5 },
+                paint: { "line-color": color, "line-width": 2.5 },
             });
         } else {
             (map.getSource(sourceId) as maplibregl.GeoJSONSource).setData(
@@ -861,18 +890,23 @@
     function updateDirectionLines() {
         if (!map) return;
         for (const m of userMarkers) {
-            if (m.type === "direction" && m.angle !== undefined) {
-                addDirectionLine(m.id, m.lat, m.lng, m.angle);
+            for (const dir of m.directions) {
+                addDirectionLine(m.id, dir.id, m.lat, m.lng, dir.angle, dir.color);
             }
         }
     }
 
-    function removeDirectionLine(id: number) {
+    function removeMarkerDirectionLines(
+        markerId: number,
+        directions: MarkerDirection[],
+    ) {
         if (!map) return;
-        const layerId = `dir-line-layer-${id}`;
-        const sourceId = `dir-line-${id}`;
-        if (map.getLayer(layerId)) map.removeLayer(layerId);
-        if (map.getSource(sourceId)) map.removeSource(sourceId);
+        for (const dir of directions) {
+            const layerId = `dir-line-layer-${markerId}-${dir.id}`;
+            const sourceId = `dir-line-${markerId}-${dir.id}`;
+            if (map.getLayer(layerId)) map.removeLayer(layerId);
+            if (map.getSource(sourceId)) map.removeSource(sourceId);
+        }
     }
     // --- End Direction Marker Lines ---
 
@@ -891,37 +925,21 @@
             alert("Please enter a valid longitude (-180 to 180).");
             return;
         }
-        if (markerType === "direction") {
-            const angle = parseFloat(newMarkerAngle);
-            if (isNaN(angle)) {
-                alert("Please enter a valid angle (0–360°).");
-                return;
-            }
-        }
         if (!map) return;
         markerIdCounter++;
         const id = markerIdCounter;
         const name = newMarkerName.trim();
-        const type = markerType ?? "point";
-        const el = createCustomMarkerElement(name, type);
-        // Direction marker: anchor at circle center so the line origin matches the dot.
-        // Point marker: anchor at bottom so the teardrop tip touches the coordinate.
-        const anchor = type === "direction" ? "center" : "bottom";
-        const mapMarker = new maplibregl.Marker({ element: el, anchor })
+        const el = createCustomMarkerElement(name);
+        const mapMarker = new maplibregl.Marker({ element: el, anchor: "center" })
             .setLngLat([lng, lat])
             .addTo(map);
-        if (type === "direction") {
-            const angle = ((parseFloat(newMarkerAngle) % 360) + 360) % 360;
-            userMarkers = [
-                ...userMarkers,
-                { id, name, lat, lng, type, angle, mapMarker },
-            ];
-            addDirectionLine(id, lat, lng, angle);
-        } else {
-            userMarkers = [
-                ...userMarkers,
-                { id, name, lat, lng, type, mapMarker },
-            ];
+        const directions = newMarkerDirections;
+        userMarkers = [
+            ...userMarkers,
+            { id, name, lat, lng, directions, mapMarker },
+        ];
+        for (const dir of directions) {
+            addDirectionLine(id, dir.id, lat, lng, dir.angle, dir.color);
         }
         removePinPointTempMarker();
         cancelAddMarkerForm();
@@ -932,7 +950,7 @@
         const idx = userMarkers.findIndex((m) => m.id === id);
         if (idx !== -1) {
             userMarkers[idx].mapMarker.remove();
-            if (userMarkers[idx].type === "direction") removeDirectionLine(id);
+            removeMarkerDirectionLines(id, userMarkers[idx].directions);
             userMarkers = userMarkers.filter((m) => m.id !== id);
             saveMarkersToStorage();
         }
@@ -947,11 +965,12 @@
     function openEditMarkerForm(m: UserMarker) {
         showAddMarkerForm = true;
         editingMarkerId = m.id;
-        markerType = m.type; // skip type selector, go straight to fields
         newMarkerName = m.name;
         newMarkerLat = String(m.lat);
         newMarkerLng = String(m.lng);
-        newMarkerAngle = m.angle !== undefined ? String(m.angle) : "";
+        newMarkerDirections = m.directions.map((d) => ({ ...d }));
+        newDirectionAngle = "";
+        newDirectionColor = DEFAULT_DIRECTION_COLOR;
         pinPointMode = false;
         // Expand the list so the form is visible alongside it
         showMarkerPanel = false;
@@ -973,34 +992,29 @@
             alert("Please enter a valid longitude (-180 to 180).");
             return;
         }
-        if (markerType === "direction") {
-            const angle = parseFloat(newMarkerAngle);
-            if (isNaN(angle)) {
-                alert("Please enter a valid angle (0\u2013360\u00b0).");
-                return;
-            }
-        }
         const idx = userMarkers.findIndex((m) => m.id === editingMarkerId);
         if (idx === -1) return;
         const existing = userMarkers[idx];
-        // Remove the old map marker and direction line
+        // Remove the old map marker and direction lines
         existing.mapMarker.remove();
-        if (existing.type === "direction") removeDirectionLine(existing.id);
+        removeMarkerDirectionLines(existing.id, existing.directions);
         // Recreate with updated values
         const name = newMarkerName.trim();
-        const type = markerType ?? existing.type;
-        const el = createCustomMarkerElement(name, type);
-        const anchor = type === "direction" ? "center" : "bottom";
-        const mapMarker = new maplibregl.Marker({ element: el, anchor })
+        const el = createCustomMarkerElement(name);
+        const mapMarker = new maplibregl.Marker({ element: el, anchor: "center" })
             .setLngLat([lng, lat])
             .addTo(map);
-        let updated: UserMarker;
-        if (type === "direction") {
-            const angle = ((parseFloat(newMarkerAngle) % 360) + 360) % 360;
-            updated = { ...existing, name, lat, lng, type, angle, mapMarker };
-            addDirectionLine(existing.id, lat, lng, angle);
-        } else {
-            updated = { ...existing, name, lat, lng, type, mapMarker };
+        const directions = newMarkerDirections;
+        const updated: UserMarker = {
+            ...existing,
+            name,
+            lat,
+            lng,
+            directions,
+            mapMarker,
+        };
+        for (const dir of directions) {
+            addDirectionLine(existing.id, dir.id, lat, lng, dir.angle, dir.color);
         }
         userMarkers = userMarkers.map((m) =>
             m.id === existing.id ? updated : m,
@@ -1053,8 +1067,7 @@
                 if (!pinPointTempMarker) {
                     pinPointTempMarker = new maplibregl.Marker({
                         element: createPinPointTempElement(),
-                        anchor: "bottom",
-                        offset: [0, -16],
+                        anchor: "center",
                     })
                         .setLngLat(e.lngLat)
                         .addTo(map);
@@ -1074,11 +1087,21 @@
         );
         fetchBookmarks();
         findMyLocation();
+
+        // Keep the canvas in sync with the container's real size — otherwise
+        // clicks/markers drift from the cursor whenever the layout settles
+        // or panels toggle after the map was first created.
+        mapResizeObserver = new ResizeObserver(() => map?.resize());
+        mapResizeObserver.observe(mapContainer);
     });
 
     onDestroy(() => {
         if (noticeTimer) {
             clearTimeout(noticeTimer);
+        }
+        if (mapResizeObserver) {
+            mapResizeObserver.disconnect();
+            mapResizeObserver = null;
         }
         if (map) {
             map.off("zoom", updateCurrentZoom);
@@ -1393,51 +1416,10 @@
 
             {#if showAddMarkerForm}
                 <div class="add-marker-form">
-                    {#if markerType === null}
-                        <!-- Step 1: choose marker type -->
-                        <div class="marker-type-selector">
-                            <span class="marker-type-label"
-                                >Select marker type:</span
-                            >
-                            <div class="marker-type-btns">
-                                <button
-                                    class="marker-type-btn point"
-                                    onclick={() => selectMarkerType("point")}
-                                >
-                                    <span class="mtype-icon">📍</span>
-                                    <span class="mtype-name">Point Marker</span>
-                                    <span class="mtype-desc"
-                                        >Marks a place on the map</span
-                                    >
-                                </button>
-                                <button
-                                    class="marker-type-btn direction"
-                                    onclick={() =>
-                                        selectMarkerType("direction")}
-                                >
-                                    <span class="mtype-icon">🧭</span>
-                                    <span class="mtype-name"
-                                        >Direction Marker</span
-                                    >
-                                    <span class="mtype-desc"
-                                        >Marks a place with a direction line</span
-                                    >
-                                </button>
-                            </div>
-                            <button
-                                class="marker-action-btn cancel"
-                                style="align-self:flex-end"
-                                onclick={cancelAddMarkerForm}>Cancel</button
-                            >
-                        </div>
-                    {:else}
-                        <!-- Step 2: fill in the form -->
-                        <div class="marker-type-chip {markerType}">
+                        <div class="marker-type-chip">
                             {editingMarkerId !== null
-                                ? "✏️ Edit — "
-                                : ""}{markerType === "point"
-                                ? "📍 Point Marker"
-                                : "🧭 Direction Marker"}
+                                ? "✏️ Edit Marker"
+                                : "📍 New Marker"}
                         </div>
                         <input
                             class="marker-input"
@@ -1474,26 +1456,60 @@
                                 {/if}
                             </button>
                         </div>
-                        {#if markerType === "direction"}
-                            <label class="angle-label">
-                                Direction angle (0–360°)
-                                <input
-                                    class="marker-input"
-                                    type="number"
-                                    placeholder="e.g. 45"
-                                    min="0"
-                                    max="360"
-                                    step="1"
-                                    style="margin-top:4px"
-                                    bind:value={newMarkerAngle}
-                                />
-                            </label>
-                        {/if}
                         {#if pinPointMode}
                             <div class="pinpoint-hint">
                                 Click anywhere on the map to set coordinates
                             </div>
                         {/if}
+                        <div class="directions-section">
+                            <span class="directions-label"
+                                >Direction lines (optional)</span
+                            >
+                            {#if newMarkerDirections.length > 0}
+                                <div class="direction-chip-list">
+                                    {#each newMarkerDirections as d}
+                                        <div class="direction-chip">
+                                            <span
+                                                class="direction-color-dot"
+                                                style="background:{d.color}"
+                                            ></span>
+                                            <span>{d.angle.toFixed(0)}°</span>
+                                            <button
+                                                class="direction-chip-remove"
+                                                onclick={() =>
+                                                    removeDirectionFromForm(
+                                                        d.id,
+                                                    )}
+                                                aria-label="Remove direction"
+                                                >✕</button
+                                            >
+                                        </div>
+                                    {/each}
+                                </div>
+                            {/if}
+                            <div class="direction-add-row">
+                                <input
+                                    class="marker-input coord"
+                                    type="number"
+                                    placeholder="Angle 0–360°"
+                                    min="0"
+                                    max="360"
+                                    step="1"
+                                    bind:value={newDirectionAngle}
+                                />
+                                <input
+                                    class="direction-color-input"
+                                    type="color"
+                                    bind:value={newDirectionColor}
+                                    title="Line color"
+                                />
+                                <button
+                                    class="direction-add-btn"
+                                    onclick={addDirectionToForm}
+                                    type="button">+ Add</button
+                                >
+                            </div>
+                        </div>
                         <div class="form-actions">
                             {#if editingMarkerId !== null}
                                 <button
@@ -1506,12 +1522,11 @@
                                     onclick={confirmAddMarker}>Add</button
                                 >
                             {/if}
-                            <button
-                                class="marker-action-btn cancel"
-                                onclick={cancelAddMarkerForm}>Cancel</button
-                            >
-                        </div>
-                    {/if}
+                        <button
+                            class="marker-action-btn cancel"
+                            onclick={cancelAddMarkerForm}>Cancel</button
+                        >
+                    </div>
                 </div>
             {/if}
 
@@ -1526,25 +1541,22 @@
                                     class="marker-name-btn"
                                     onclick={() => flyToMarker(m)}
                                 >
-                                    <span class="marker-list-icon"
-                                        >{m.type === "direction"
-                                            ? "🧭"
-                                            : "📍"}</span
-                                    >
+                                    <span class="marker-list-icon">📍</span>
                                     <span class="marker-list-name"
                                         >{m.name}</span
                                     >
                                     <span class="marker-list-coords">
                                         {m.lat.toFixed(4)}, {m.lng.toFixed(4)}
-                                        {#if m.type === "direction" && m.angle !== undefined}
-                                            &nbsp;· {m.angle.toFixed(0)}°
+                                        {#if m.directions.length > 0}
+                                            &nbsp;· 🧭{m.directions.length}
                                         {/if}
                                     </span>
                                 </button>
                                 <button
                                     class="marker-edit-btn"
                                     onclick={() => openEditMarkerForm(m)}
-                                    aria-label="Edit marker {m.name}">✎</button
+                                    aria-label="Edit marker {m.name}"
+                                    >✎</button
                                 >
                                 <button
                                     class="marker-remove-btn"
@@ -1564,7 +1576,6 @@
 
 <style>
     :global(.my-location-marker) {
-        position: relative;
         width: 24px;
         height: 24px;
     }
@@ -2040,15 +2051,18 @@
 
     .marker-action-btn.add:hover {
         background: #16a34a;
+        box-shadow: 0 3px 10px rgba(22, 163, 74, 0.4);
     }
 
     .marker-action-btn.cancel {
-        background: #e2e8f0;
+        background: #ffffff;
         color: #475569;
+        border: 1.5px solid #cbd5e1;
     }
 
     .marker-action-btn.cancel:hover {
-        background: #cbd5e1;
+        background: #f1f5f9;
+        border-color: #94a3b8;
     }
 
     .marker-action-btn.toggle {
@@ -2153,7 +2167,18 @@
 
     .form-actions {
         display: flex;
-        gap: 8px;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 6px;
+        padding-top: 10px;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    .form-actions .marker-action-btn {
+        padding: 8px 20px;
+        font-size: 13px;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
     }
 
     .marker-list-scroll {
@@ -2252,7 +2277,6 @@
     }
 
     :global(.pinpoint-temp-marker) {
-        position: relative;
         width: 20px;
         height: 20px;
         pointer-events: none;
@@ -2269,52 +2293,21 @@
     }
     /* ---- end temporary marker style ---- */
 
-    /* Custom map marker pin — point (red teardrop), label on top */
+    /* Custom map marker pin — point (blue circle), label floats above.
+       Fixed 18×18 box matching the pin so anchor:"center" lands exactly
+       on the coordinate regardless of the label's size. */
     :global(.custom-marker) {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
+        width: 18px;
+        height: 18px;
         cursor: pointer;
-    }
-
-    /* Label sits above the pin for point markers */
-    :global(.custom-marker:not(.direction) .custom-marker-label) {
-        order: -1;
-        margin-bottom: 3px;
-        margin-top: 0;
-    }
-
-    :global(.custom-marker-pin) {
-        width: 20px;
-        height: 20px;
-        border-radius: 50% 50% 50% 0;
-        background: #ef4444;
-        border: 2px solid #ffffff;
-        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
-        transform: rotate(-45deg);
-        flex-shrink: 0;
-    }
-
-    /* Direction marker — fixed 20×20 so MapLibre's anchor:"center" centres it
-       exactly on the coordinate.  No label; circle fills the element. */
-    :global(.custom-marker.direction) {
-        width: 20px;
-        height: 20px;
-        display: block;
-        cursor: pointer;
-    }
-
-    :global(.custom-marker.direction .custom-marker-pin) {
-        width: 20px;
-        height: 20px;
-        background: #16a34a;
-        border-radius: 50%;
-        transform: none;
-        border: 2px solid #ffffff;
-        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
     }
 
     :global(.custom-marker-label) {
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        margin-bottom: 4px;
         background: rgba(255, 255, 255, 0.92);
         color: #0f172a;
         font-size: 11px;
@@ -2328,69 +2321,16 @@
         text-overflow: ellipsis;
         pointer-events: none;
     }
-    /* Marker type selector */
-    .marker-type-selector {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        padding-top: 8px;
-    }
 
-    .marker-type-label {
-        font-size: 12px;
-        font-weight: 600;
-        color: #475569;
+    :global(.custom-marker-pin) {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #087827;
+        border: 2px solid #ffffff;
+        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
     }
-
-    .marker-type-btns {
-        display: flex;
-        gap: 8px;
-    }
-
-    .marker-type-btn {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 3px;
-        padding: 10px 8px;
-        border-radius: 8px;
-        border: 2px solid #e2e8f0;
-        background: #f8fafc;
-        cursor: pointer;
-        transition:
-            border-color 0.15s ease,
-            background 0.15s ease;
-    }
-
-    .marker-type-btn:hover {
-        background: #f0f9ff;
-    }
-
-    .marker-type-btn.point:hover {
-        border-color: #ef4444;
-    }
-
-    .marker-type-btn.direction:hover {
-        border-color: #f97316;
-    }
-
-    .mtype-icon {
-        font-size: 20px;
-    }
-
-    .mtype-name {
-        font-size: 12px;
-        font-weight: 700;
-        color: #0f172a;
-    }
-
-    .mtype-desc {
-        font-size: 10px;
-        color: #64748b;
-        text-align: center;
-    }
-
+    /* Marker type chip */
     .marker-type-chip {
         display: inline-block;
         font-size: 11px;
@@ -2399,27 +2339,98 @@
         border-radius: 999px;
         margin-top: 8px;
         align-self: flex-start;
+        background: #e0f2fe;
+        color: #0369a1;
     }
 
-    .marker-type-chip.point {
-        background: #fee2e2;
-        color: #b91c1c;
-    }
-
-    .marker-type-chip.direction {
-        background: #ffedd5;
-        color: #c2410c;
-    }
-
-    .angle-label {
-        font-size: 12px;
-        color: #475569;
+    /* Direction lines add-on */
+    .directions-section {
         display: flex;
         flex-direction: column;
+        gap: 6px;
+        padding-top: 4px;
+        border-top: 1px dashed #e2e8f0;
     }
 
-    /* .hide-button {
-        display: none;
-    } */
-    /* ---- End Marker Bottom Panel ---- */
+    .directions-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: #475569;
+    }
+
+    .direction-chip-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .direction-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: #f1f5f9;
+        border-radius: 999px;
+        padding: 3px 6px 3px 8px;
+        font-size: 12px;
+        color: #0f172a;
+    }
+
+    .direction-color-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        border: 1px solid rgba(0, 0, 0, 0.15);
+    }
+
+    .direction-chip-remove {
+        background: none;
+        border: none;
+        color: #ef4444;
+        cursor: pointer;
+        font-size: 11px;
+        padding: 0 2px;
+    }
+
+    .direction-add-row {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+    }
+
+    .direction-add-row .marker-input.coord {
+        flex: 1;
+    }
+
+    .direction-color-input {
+        width: 34px;
+        height: 32px;
+        padding: 0;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+
+    .direction-add-btn {
+        flex-shrink: 0;
+        border: 1px solid #3b82f6;
+        background: white;
+        color: #3b82f6;
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        transition:
+            background 0.15s ease,
+            color 0.15s ease;
+    }
+
+    .direction-add-btn:hover {
+        background: #3b82f6;
+        color: white;
+    }
+    
 </style>
