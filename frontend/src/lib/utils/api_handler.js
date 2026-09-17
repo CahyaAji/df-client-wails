@@ -1,4 +1,7 @@
-import { ProxyGetRequest, ProxyPostRequest } from "../../../wailsjs/go/main/App";
+import {
+  ProxyGetRequest,
+  ProxyPostRequest,
+} from "../../../wailsjs/go/main/App";
 
 // export const API_URL = "http://localhost:3000";
 // export const API_URL = "http://192.168.100.224:8087";
@@ -26,7 +29,10 @@ export const readDF = async () => {
     };
     return { success: true, data };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : String(error) };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
 };
 
@@ -41,19 +47,28 @@ export const setAntenna = async (/** @type {number} */ antSpace) => {
     const jsonResponse = JSON.parse(response);
     return { success: true, data: jsonResponse };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : String(error) };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
 };
 
 export const setFreqGainApi = async (
-  /** @type {{center_freq: number, uniform_gain: number, ant_spacing_meters: number}} */ data
+  /** @type {{center_freq: number, uniform_gain: number, ant_spacing_meters: number}} */ data,
 ) => {
   try {
-    const response = await ProxyPostRequest(`${API_URL}/api/settings/freq`, JSON.stringify(data));
+    const response = await ProxyPostRequest(
+      `${API_URL}/api/settings/freq`,
+      JSON.stringify(data),
+    );
     const jsonResponse = JSON.parse(response);
     return { success: true, data: jsonResponse };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : String(error) };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
 };
 
@@ -63,7 +78,10 @@ export const readCompass = async () => {
     const data = JSON.parse(response);
     return { success: true, data: Number(data.heading) };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : String(error) };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
 };
 
@@ -82,11 +100,17 @@ export const setStationId = async (/** @type {string} */ nameId) => {
     id: nameId,
   };
   try {
-    const response = await ProxyPostRequest(API_URL + "/api/settings/station_id", JSON.stringify(stationId));
-	const jsonResponse = JSON.parse(response);
+    const response = await ProxyPostRequest(
+      API_URL + "/api/settings/station_id",
+      JSON.stringify(stationId),
+    );
+    const jsonResponse = JSON.parse(response);
     return { success: true, data: jsonResponse };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : String(error) };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
 };
 
@@ -120,6 +144,9 @@ export const readGPSExternal = async () => {
     const json = JSON.parse(response);
     return { success: true, data: json.data ?? json };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : String(error) };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
 };
