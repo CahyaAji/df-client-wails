@@ -367,8 +367,6 @@
         };
     }
 
-    // const API_KEY = "fB2eDjoDg2nlel5Kw6ym";
-    // const API_KEY = "aUOEn1bA48mz3xc3pL4N";
     const apiKey = $derived(configStore.mapKey);
 
     function getStyle(mode: "normal" | "hybrid") {
@@ -475,6 +473,10 @@
         if (now - _lastMarkerToggleMs < 350) return;
         _lastMarkerToggleMs = now;
         showMarkerBottomPanel = !showMarkerBottomPanel;
+        if (showMarkerBottomPanel) {
+            // auto-open the marker list so it's visible without an extra click
+            showMarkerPanel = true;
+        }
     }
 
     function beginSelection() {
@@ -771,6 +773,7 @@
 
     function openAddMarkerForm() {
         showAddMarkerForm = true;
+        showMarkerPanel = false;
         editingMarkerId = null;
         newMarkerName = "";
         newMarkerLat = "";
@@ -783,6 +786,7 @@
 
     function cancelAddMarkerForm() {
         showAddMarkerForm = false;
+        showMarkerPanel = true;
         editingMarkerId = null;
         pinPointMode = false;
         newMarkerName = "";
@@ -972,7 +976,7 @@
         newDirectionAngle = "";
         newDirectionColor = DEFAULT_DIRECTION_COLOR;
         pinPointMode = false;
-        // Expand the list so the form is visible alongside it
+        // Hide the list while editing so the form has room
         showMarkerPanel = false;
     }
 
@@ -1727,8 +1731,7 @@
     }
 
     .toolbar-btn,
-    .toolbar-indicator,
-    .toolbar-checkbox {
+    .toolbar-indicator {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -1752,8 +1755,7 @@
         touch-action: manipulation;
     }
 
-    .toolbar-btn:hover,
-    .toolbar-checkbox:hover {
+    .toolbar-btn:hover {
         background: #f1f5f9;
         border-color: rgba(59, 130, 246, 0.4);
         box-shadow: 0 4px 10px rgba(37, 99, 235, 0.12);
@@ -1802,16 +1804,6 @@
         border-color: #1d4ed8;
         color: #ffffff;
         box-shadow: 0 6px 14px rgba(37, 99, 235, 0.28);
-    }
-
-    .toolbar-checkbox {
-        cursor: pointer;
-        user-select: none;
-        padding: 0 10px;
-    }
-
-    .toolbar-checkbox.active {
-        color: #0f172a;
     }
 
     .toolbar-indicator {
@@ -2181,9 +2173,10 @@
         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
     }
 
+    /* maximum height for the marker list */
     .marker-list-scroll {
         overflow-y: auto;
-        max-height: 36vh;
+        max-height: 40vh;
         border-top: 1px solid #f1f5f9;
     }
 
