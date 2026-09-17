@@ -340,10 +340,10 @@
 
     let selectMode = $state(false);
     const MIN_ZOOM_LIMIT = 8;
-    const MAX_ZOOM_LIMIT = 16;
+    const MAX_ZOOM_LIMIT = 18;
 
     let customMinZoom = $state(MIN_ZOOM_LIMIT);
-    let customMaxZoom = $state(14);
+    let customMaxZoom = $state(16);
     let selectionPixels: SelectionPixels | null = $state(null);
     let selectionBounds: Bounds | null = $state(null);
 
