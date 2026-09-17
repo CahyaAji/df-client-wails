@@ -443,8 +443,15 @@
         position: absolute;
         top: 8px;
         right: 8px;
-        font-size: 14pt;
-        color: darkorange;
+        font-size: 13pt;
+        padding: 0 2px;
+        width: 50px;
+        height: 30px;
+        align-content: center;
+        text-align: right;
+        border-radius: 4px;
+        background-color: rgba(4, 61, 15, 0.7);
+        color: white;
         z-index: 1;
     }
 </style>
