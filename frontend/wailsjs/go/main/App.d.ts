@@ -10,6 +10,8 @@ export function GetConfig():Promise<main.AppConfig>;
 
 export function GetMapKey():Promise<string>;
 
+export function GetVectorMapPath():Promise<string>;
+
 export function ListBookmarks():Promise<Array<main.Bookmark>>;
 
 export function ProxyGetRequest(arg1:string):Promise<string>;
@@ -17,6 +19,8 @@ export function ProxyGetRequest(arg1:string):Promise<string>;
 export function ProxyPostRequest(arg1:string,arg2:string):Promise<string>;
 
 export function ResetConfig():Promise<void>;
+
+export function SelectVectorMapFile():Promise<string>;
 
 export function SendUdpNumber(arg1:number,arg2:number):Promise<string>;
 

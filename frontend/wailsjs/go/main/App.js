@@ -18,6 +18,10 @@ export function GetMapKey() {
   return window['go']['main']['App']['GetMapKey']();
 }
 
+export function GetVectorMapPath() {
+  return window['go']['main']['App']['GetVectorMapPath']();
+}
+
 export function ListBookmarks() {
   return window['go']['main']['App']['ListBookmarks']();
 }
@@ -32,6 +36,10 @@ export function ProxyPostRequest(arg1, arg2) {
 
 export function ResetConfig() {
   return window['go']['main']['App']['ResetConfig']();
+}
+
+export function SelectVectorMapFile() {
+  return window['go']['main']['App']['SelectVectorMapFile']();
 }
 
 export function SendUdpNumber(arg1, arg2) {

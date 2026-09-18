@@ -1,15 +1,21 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"database/sql"
 	"embed"
 	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
+	"github.com/protomaps/go-pmtiles/pmtiles"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -19,6 +25,15 @@ import (
 
 //go:embed all:frontend/dist
 var assets embed.FS
+
+// Font glyph PBFs for offline label rendering (road/place names), served at
+// /fonts/{fontstack}/{range}.pbf. Sourced from the openmaptiles/fonts
+// gh-pages build (Open Sans Regular, Apache-2.0 licensed — see
+// assets/fonts/LICENSE.txt) so text labels work fully offline instead of
+// depending on a public glyph CDN.
+//
+//go:embed assets/fonts
+var fontAssets embed.FS
 
 var db *sql.DB
 
@@ -42,6 +57,7 @@ type UTMLocation struct {
 // AppConfig holds configurable values saved in config.json
 type AppConfig struct {
 	MapKey        string      `json:"map_key"`
+	VectorMapPath string      `json:"vector_map_path"`
 	CompassOffset float64     `json:"compass_offset"`
 	OffsetUhf     float64     `json:"offsetUhf"`
 	OffsetVhf     float64     `json:"offsetVhf"`
@@ -50,6 +66,47 @@ type AppConfig struct {
 }
 
 var appConfig AppConfig
+
+// Vector (PMTiles) tile server state. Only one archive is active at a time;
+// selecting a new file swaps pmServer/pmArchive under pmMu. The pmtiles.Server
+// spins up a background cache goroutine via Start() that never voluntarily
+// exits — when swapping files the old goroutine is simply abandoned (it just
+// blocks forever on an unused channel), which is an acceptable trade-off for
+// a desktop app where the user rarely swaps files within a single session.
+var (
+	pmMu      sync.RWMutex
+	pmServer  *pmtiles.Server
+	pmArchive string
+)
+
+// loadVectorMap opens the given .pmtiles file and makes it the active vector
+// tile source, replacing any previously loaded archive.
+func loadVectorMap(path string) error {
+	if path == "" {
+		return nil
+	}
+	if _, err := os.Stat(path); err != nil {
+		return fmt.Errorf("pmtiles file not accessible: %w", err)
+	}
+
+	dir := filepath.Dir(path)
+	base := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+
+	bucket := pmtiles.NewFileBucket(dir)
+	logger := log.New(os.Stdout, "[pmtiles] ", log.LstdFlags)
+	srv, err := pmtiles.NewServerWithBucket(bucket, "", logger, 64, "")
+	if err != nil {
+		return err
+	}
+	srv.Start()
+
+	pmMu.Lock()
+	pmServer = srv
+	pmArchive = base
+	pmMu.Unlock()
+	log.Printf("[pmtiles] loaded vector map %q (archive=%q, dir=%q)", path, base, dir)
+	return nil
+}
 
 func configPath() string {
 	// If wails.json exists in the current working directory, we are likely in development mode
@@ -151,6 +208,16 @@ func main() {
 	// the window appears immediately instead of waiting for DB setup.
 	go initDB()
 
+	// Restore the previously selected vector (PMTiles) map, if any, without
+	// blocking window startup.
+	if appConfig.VectorMapPath != "" {
+		go func() {
+			if err := loadVectorMap(appConfig.VectorMapPath); err != nil {
+				log.Println("Failed to reload previously selected PMTiles file:", err)
+			}
+		}()
+	}
+
 	app := NewApp()
 
 	// Create application with options
@@ -187,6 +254,20 @@ func main() {
 					// Format expected: /tiles/{style}/{z}/{x}/{y}.png
 					if strings.HasPrefix(r.URL.Path, "/tiles/") {
 						handleTileRequest(w, r)
+						return
+					}
+
+					// Vector (PMTiles) OSM base map.
+					// Format expected: /vtiles/{z}/{x}/{y}.mvt
+					if strings.HasPrefix(r.URL.Path, "/vtiles/") {
+						handleVectorTileRequest(w, r)
+						return
+					}
+
+					// Font glyphs for offline vector map labels.
+					// Format expected: /fonts/{fontstack}/{range}.pbf
+					if strings.HasPrefix(r.URL.Path, "/fonts/") {
+						handleFontRequest(w, r)
 						return
 					}
 
@@ -242,8 +323,96 @@ func handleTileRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. Serve Image
 	w.Header().Set("Content-Type", "image/png")
 	w.Header().Set("Cache-Control", "public, max-age=31536000") // Cache for 1 year
 	w.Write(tileData)
+}
+
+// handleVectorTileRequest serves vector (MVT/PBF) tiles from the currently
+// active PMTiles archive, selected via App.SelectVectorMapFile.
+// Format expected: /vtiles/{z}/{x}/{y}.mvt
+func handleVectorTileRequest(w http.ResponseWriter, r *http.Request) {
+	pmMu.RLock()
+	srv := pmServer
+	archive := pmArchive
+	pmMu.RUnlock()
+
+	if srv == nil {
+		log.Printf("[vtiles] %s -> no vector map loaded", r.URL.Path)
+		http.NotFound(w, r)
+		return
+	}
+
+	// r.URL.Path = /vtiles/{z}/{x}/{y}.mvt -> archive-relative path
+	rest := strings.TrimPrefix(r.URL.Path, "/vtiles/")
+	path := "/" + archive + "/" + rest
+
+	status, headers, data := srv.Get(r.Context(), path)
+
+	// The pmtiles library reports the tile's on-disk compression via the
+	// Content-Encoding header, relying on the CLIENT to transparently
+	// decompress it (as a normal browser fetch would). Wails' webview
+	// serves this content through its own custom "wails://" URL scheme
+	// handler rather than a plain HTTP load, and that path does NOT
+	// perform automatic Content-Encoding decompression — MapLibre would
+	// otherwise receive raw gzip bytes and fail with "Unable to parse the
+	// tile ... expected a valid PBF". So we decompress it ourselves here
+	// and drop the header, sending plain, already-decoded PBF bytes.
+	if enc := headers["Content-Encoding"]; enc == "gzip" && status == http.StatusOK {
+		if gr, err := gzip.NewReader(bytes.NewReader(data)); err == nil {
+			if decoded, err := io.ReadAll(gr); err == nil {
+				data = decoded
+			} else {
+				log.Printf("[vtiles] gzip read error for %s: %v", r.URL.Path, err)
+			}
+			gr.Close()
+		} else {
+			log.Printf("[vtiles] gzip reader error for %s: %v", r.URL.Path, err)
+		}
+		delete(headers, "Content-Encoding")
+	}
+
+	for k, v := range headers {
+		w.Header().Set(k, v)
+	}
+	// Only cache successful tile responses. Caching error/404 responses is
+	// dangerous here: a tile that legitimately 404s before a file is loaded
+	// (or before it's fully re-indexed after a swap) would otherwise be
+	// remembered as "missing" by the webview's HTTP cache forever, even
+	// after the correct archive starts serving that tile successfully.
+	if status == http.StatusOK {
+		w.Header().Set("Cache-Control", "public, max-age=31536000")
+	} else {
+		w.Header().Set("Cache-Control", "no-store")
+		log.Printf("[vtiles] %s -> archive=%s path=%s status=%d", r.URL.Path, archive, path, status)
+	}
+	w.WriteHeader(status)
+	w.Write(data)
+}
+
+// handleFontRequest serves embedded font glyph PBFs for offline label
+// rendering. Format expected: /fonts/{fontstack}/{range}.pbf
+// (fontstack may itself contain spaces, e.g. "Open Sans Regular", but
+// never contains "/", so the *last* slash always separates it from the
+// "{start}-{end}.pbf" range filename.)
+func handleFontRequest(w http.ResponseWriter, r *http.Request) {
+	rest := strings.TrimPrefix(r.URL.Path, "/fonts/")
+	idx := strings.LastIndex(rest, "/")
+	if idx < 0 {
+		http.NotFound(w, r)
+		return
+	}
+	fontstack := rest[:idx]
+	rangeFile := rest[idx+1:]
+
+	data, err := fontAssets.ReadFile("assets/fonts/" + fontstack + "/" + rangeFile)
+	if err != nil {
+		log.Printf("[fonts] %s -> not found (fontstack=%q range=%q): %v", r.URL.Path, fontstack, rangeFile, err)
+		w.Header().Set("Cache-Control", "no-store")
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "application/x-protobuf")
+	w.Header().Set("Cache-Control", "public, max-age=31536000")
+	w.Write(data)
 }
