@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/protomaps/go-pmtiles v1.31.2
-	github.com/wailsapp/wails/v2 v2.15.0
+	github.com/wailsapp/wails/v2 v2.16.0
 	modernc.org/sqlite v1.58.0
 )
 
