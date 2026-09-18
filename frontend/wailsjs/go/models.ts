@@ -34,6 +34,7 @@ export namespace main {
 	}
 	export class AppConfig {
 	    map_key: string;
+	    vector_map_path: string;
 	    compass_offset: number;
 	    offsetUhf: number;
 	    offsetVhf: number;
@@ -47,6 +48,7 @@ export namespace main {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.map_key = source["map_key"];
+	        this.vector_map_path = source["vector_map_path"];
 	        this.compass_offset = source["compass_offset"];
 	        this.offsetUhf = source["offsetUhf"];
 	        this.offsetVhf = source["offsetVhf"];

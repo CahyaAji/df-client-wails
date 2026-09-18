@@ -102,6 +102,38 @@ func (a *App) GetMapKey() string {
 	return appConfig.MapKey
 }
 
+// GetVectorMapPath returns the path to the currently selected PMTiles
+// vector map file, or an empty string if none has been selected yet.
+func (a *App) GetVectorMapPath() string {
+	return appConfig.VectorMapPath
+}
+
+// SelectVectorMapFile opens a native file picker for the user to choose a
+// .pmtiles file, loads it as the active vector tile source, and persists
+// the choice to config.json. Returns the selected path (empty if the user
+// cancelled the dialog).
+func (a *App) SelectVectorMapFile() (string, error) {
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Select PMTiles Map File",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "PMTiles (*.pmtiles)", Pattern: "*.pmtiles"},
+		},
+	})
+	if err != nil || path == "" {
+		return "", err
+	}
+
+	if err := loadVectorMap(path); err != nil {
+		return "", err
+	}
+
+	appConfig.VectorMapPath = path
+	if err := saveConfig(); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
 // GetConfig returns the full app configuration
 func (a *App) GetConfig() AppConfig {
 	return appConfig

@@ -3,9 +3,9 @@ import {
   ProxyPostRequest,
 } from "../../../wailsjs/go/main/App";
 
-// export const API_URL = "http://localhost:3000";
+export const API_URL = "http://localhost:3000";
 // export const API_URL = "http://192.168.100.224:8087";
-export const API_URL = "http://192.168.17.17:8087";
+// export const API_URL = "http://192.168.17.17:8087";
 
 export const readDF = async () => {
   try {
