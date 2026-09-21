@@ -76,26 +76,40 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	runtime.WindowUnmaximise(ctx)
-	// Enforce compact startup size even if the OS/webview profile tries to restore.
-	// runtime.WindowSetSize(ctx, 500, 710)
-	// runtime.WindowSetPosition(ctx, 1400, 0)
+	a.enforceCompactSize()
 }
 
-// domReady runs after the webview is ready. On some Windows setups, the
-// restored window state can override startup sizing; retry briefly to force normal.
-// func (a *App) domReady(ctx context.Context) {
-// 	go func() {
-// 		for i := 0; i < 6; i++ {
-// 			time.Sleep(150 * time.Millisecond)
-// 			if runtime.WindowIsMaximised(ctx) {
-// 				runtime.WindowUnmaximise(ctx)
-// 			}
-// 			// runtime.WindowSetSize(ctx, 500, 710)
-// 			// runtime.WindowSetPosition(ctx, 1440, 0)
-// 		}
-// 	}()
-// }
+// domReady retries the size/state fix shortly after load — on small-screen
+// (e.g. 10") Windows laptops, DPI scaling can make the OS re-maximise the
+// window after startup already ran, so keep correcting it for a short time.
+func (a *App) domReady(ctx context.Context) {
+	go func() {
+		for i := 0; i < 6; i++ {
+			time.Sleep(150 * time.Millisecond)
+			a.enforceCompactSize()
+		}
+	}()
+}
+
+// enforceCompactSize unmaximises the window and clamps its size to the
+// current monitor, since small/high-DPI screens can exceed the requested
+// logical size and trigger Windows' auto-maximise placement.
+func (a *App) enforceCompactSize() {
+	const wantWidth, wantHeight = 320, 700
+	if runtime.WindowIsMaximised(a.ctx) {
+		runtime.WindowUnmaximise(a.ctx)
+	}
+	width, height := wantWidth, wantHeight
+	if screens, err := runtime.ScreenGetAll(a.ctx); err == nil && len(screens) > 0 {
+		if screens[0].Height > 0 && screens[0].Height-40 < height {
+			height = screens[0].Height - 40
+		}
+		if screens[0].Width > 0 && screens[0].Width < width {
+			width = screens[0].Width
+		}
+	}
+	runtime.WindowSetSize(a.ctx, width, height)
+}
 
 // GetMapKey returns the map API key loaded from config.json
 func (a *App) GetMapKey() string {
