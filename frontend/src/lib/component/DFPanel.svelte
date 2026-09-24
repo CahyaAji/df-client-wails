@@ -348,7 +348,7 @@
       <div class="plot-wrapper">
         <div class="power-value">
           {#if dfStore.data?.power !== undefined && dfStore.data?.power !== null}{dfStore
-              .data?.power} dB{:else}-- dB{/if}
+              .data?.power.toFixed(1)} dB{:else}-- dB{/if}
         </div>
         {#if plotMode === "relative"}
           <RelativePlot />
@@ -437,11 +437,11 @@
     right: 2px;
     font-size: 12pt;
     padding: 0 2px;
-    width: 58px;
+    width: 66px;
     height: 30px;
     align-content: center;
     text-align: right;
-    border-radius: 4px;
+    border-radius: 8px;
     background-color: rgba(4, 61, 15, 0.7);
     color: yellow;
     z-index: 1;
