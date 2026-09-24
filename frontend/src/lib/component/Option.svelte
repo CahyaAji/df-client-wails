@@ -4,11 +4,13 @@
     import { signalState } from "../store/signalState.svelte";
     import { udpState, udpStore } from "../store/udpStore.svelte";
     import { dfStore } from "../store/dfStore.svelte";
+    import { GetVersion } from "../../../wailsjs/go/main/App";
 
     let message = $state("");
     let messageTimeout: ReturnType<typeof setTimeout> | null = null;
     let dfName = $state("");
     let isShuttingDown = $state(false);
+    let appVersion = $state("");
 
     function showMessage(msg: string, duration: number = 1500) {
         message = msg;
@@ -96,6 +98,12 @@
     $effect(() => {
         dfName = signalState.stationName;
     });
+
+    $effect(() => {
+        GetVersion().then((v) => {
+            appVersion = v;
+        });
+    });
 </script>
 
 <div class="container">
@@ -103,6 +111,9 @@
         <div class="msg">{message}</div>
     {:else}
         <div class="content">
+        <div class="version">
+                <span>App Version : {appVersion}</span>
+            </div>
             <label>
                 <span>DF Unit Name :</span>
                 <input
@@ -125,6 +136,7 @@
                     >
                 </div>
             </div>
+            
         </div>
     {/if}
 </div>
@@ -145,12 +157,18 @@
     }
     .power-option {
         display: flex;
-        margin-top: 10px;
+        margin-top: 2px;
         flex-direction: column;
         padding-right: 8px;
     }
     .option-btn {
-        margin: 8px auto;
+        margin: 2px auto;
+    }
+
+    .version {
+        margin-top: 4px;
+        margin-bottom: 2px;
+        font-size: 10pt;
     }
 
     .msg {

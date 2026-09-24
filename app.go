@@ -9,6 +9,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -151,6 +152,24 @@ func (a *App) SelectVectorMapFile() (string, error) {
 // GetConfig returns the full app configuration
 func (a *App) GetConfig() AppConfig {
 	return appConfig
+}
+
+// GetVersion reads the version field from wails.json and returns it.
+func (a *App) GetVersion() string {
+	data, err := os.ReadFile("wails.json")
+	if err != nil {
+		return "unknown"
+	}
+	var wailsConfig struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(data, &wailsConfig); err != nil {
+		return "unknown"
+	}
+	if wailsConfig.Version == "" {
+		return "unknown"
+	}
+	return wailsConfig.Version
 }
 
 // SetCompassOffset saves compass offset to config.json
