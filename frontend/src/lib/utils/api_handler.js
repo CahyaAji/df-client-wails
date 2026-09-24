@@ -24,8 +24,9 @@ export const readDF = async () => {
       time: dataArray[0].trim(),
       heading: (360 - Number(dataArray[1].trim())) % 360,
       confidence: dataArray[2].trim(),
-      power: dataArray[3].trim(),
-      polar: dataArray.slice(17, 377).map(Number).reverse(),
+      power: Number(dataArray[3].trim()),
+      polar: dataArray.slice(17, 377).map(Number),
+      // polar: dataArray.slice(17, 377).map(Number).reverse(),
     };
     return { success: true, data };
   } catch (error) {
