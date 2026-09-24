@@ -56,7 +56,7 @@
     }
 
     signalState.setFrequency(inputFreqMhz);
-    const antSpace = inputFreqMhz > 250 ? 0.25 : 0.45;
+    const antSpace = inputFreqMhz > 250 ? 0.23 : 0.57;
     isBusy = true;
 
     try {
