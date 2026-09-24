@@ -12,6 +12,8 @@ export function GetMapKey():Promise<string>;
 
 export function GetVectorMapPath():Promise<string>;
 
+export function GetVersion():Promise<string>;
+
 export function ListBookmarks():Promise<Array<main.Bookmark>>;
 
 export function ProxyGetRequest(arg1:string):Promise<string>;

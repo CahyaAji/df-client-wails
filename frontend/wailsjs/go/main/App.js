@@ -22,6 +22,10 @@ export function GetVectorMapPath() {
   return window['go']['main']['App']['GetVectorMapPath']();
 }
 
+export function GetVersion() {
+  return window['go']['main']['App']['GetVersion']();
+}
+
 export function ListBookmarks() {
   return window['go']['main']['App']['ListBookmarks']();
 }
