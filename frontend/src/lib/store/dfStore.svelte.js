@@ -8,7 +8,7 @@ import { signalState } from "../store/signalState.svelte.js";
  * @property {string} time
  * @property {number} heading
  * @property {string} confidence
- * @property {string} power
+ * @property {number} power
  * @property {number[]} polar
  */
 
