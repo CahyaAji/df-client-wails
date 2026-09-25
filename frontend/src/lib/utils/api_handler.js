@@ -7,6 +7,25 @@ import {
 // export const API_URL = "http://192.168.100.224:8087";
 export const API_URL = "http://192.168.17.17:8087";
 
+/**
+ * Safely parse a JSON string. If parsing fails the error message includes
+ * the API name and a preview of the raw response so you can tell whether
+ * the backend returned HTML (e.g. a 502 error page) instead of JSON.
+ * @param {string} raw - Raw response body
+ * @param {string} apiName - Human-readable label for error messages
+ * @returns {any} Parsed JSON value
+ */
+function safeJsonParse(raw, apiName) {
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    const preview = raw.length > 150 ? raw.slice(0, 150) + "..." : raw;
+    throw new Error(
+      `[${apiName}] Invalid JSON response (first 150 chars): ${preview}`,
+    );
+  }
+}
+
 export const readDF = async () => {
   try {
     const resText = await ProxyGetRequest(`${API_URL}/df`);
@@ -45,7 +64,7 @@ export const setAntenna = async (/** @type {number} */ antSpace) => {
 
   try {
     const response = await ProxyGetRequest(API_URL + "/api/ant/" + typeAnt);
-    const jsonResponse = JSON.parse(response);
+    const jsonResponse = safeJsonParse(response, "setAntenna");
     return { success: true, data: jsonResponse };
   } catch (error) {
     return {
@@ -63,7 +82,7 @@ export const setFreqGainApi = async (
       `${API_URL}/api/settings/freq`,
       JSON.stringify(data),
     );
-    const jsonResponse = JSON.parse(response);
+    const jsonResponse = safeJsonParse(response, "setFreqGain");
     return { success: true, data: jsonResponse };
   } catch (error) {
     return {
@@ -76,7 +95,7 @@ export const setFreqGainApi = async (
 export const readCompass = async () => {
   try {
     const response = await ProxyGetRequest(`${API_URL}/api/compass`);
-    const data = JSON.parse(response);
+    const data = safeJsonParse(response, "readCompass");
     return { success: true, data: Number(data.heading) };
   } catch (error) {
     return {
@@ -88,7 +107,7 @@ export const readCompass = async () => {
 
 export const getDFSettings = async () => {
   const response = await ProxyGetRequest(`${API_URL}/api/settings`);
-  const result = JSON.parse(response);
+  const result = safeJsonParse(response, "getDFSettings");
   return {
     center_freq: result.center_freq,
     uniform_gain: result.uniform_gain,
@@ -105,7 +124,7 @@ export const setStationId = async (/** @type {string} */ nameId) => {
       API_URL + "/api/settings/station_id",
       JSON.stringify(stationId),
     );
-    const jsonResponse = JSON.parse(response);
+    const jsonResponse = safeJsonParse(response, "setStationId");
     return { success: true, data: jsonResponse };
   } catch (error) {
     return {
@@ -142,7 +161,7 @@ export const restartDf = async () => {
 export const readGPSExternal = async () => {
   try {
     const response = await ProxyGetRequest(`${API_URL}/api/gps/status`);
-    const json = JSON.parse(response);
+    const json = safeJsonParse(response, "readGPSExternal");
     return { success: true, data: json.data ?? json };
   } catch (error) {
     return {

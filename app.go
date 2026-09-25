@@ -208,13 +208,21 @@ func (a *App) ProxyGetRequest(url string) (string, error) {
 	}
 	resp, err := client.Get(url)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("proxy GET %s: %w", url, err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("proxy GET %s read body: %w", url, err)
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		preview := string(body)
+		if len(preview) > 200 {
+			preview = preview[:200] + "..."
+		}
+		return "", fmt.Errorf("proxy GET %s returned HTTP %d: %s", url, resp.StatusCode, preview)
 	}
 
 	return string(body), nil
@@ -228,13 +236,21 @@ func (a *App) ProxyPostRequest(url string, jsonBody string) (string, error) {
 	reqBody := []byte(jsonBody)
 	resp, err := client.Post(url, "application/json", bytes.NewBuffer(reqBody))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("proxy POST %s: %w", url, err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("proxy POST %s read body: %w", url, err)
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		preview := string(body)
+		if len(preview) > 200 {
+			preview = preview[:200] + "..."
+		}
+		return "", fmt.Errorf("proxy POST %s returned HTTP %d: %s", url, resp.StatusCode, preview)
 	}
 
 	return string(body), nil
