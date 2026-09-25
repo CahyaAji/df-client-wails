@@ -143,8 +143,8 @@
       <!-- Radar data -->
       <path
         d={radarPath}
-        fill="rgba(0, 50, 255, 0.3)"
-        stroke="rgba(0, 50, 255, 1)"
+        fill="rgba(250, 250, 0, 0.7)"
+        stroke="rgba(255, 255, 0, 1)"
         stroke-width="1"
         stroke-linejoin="round"
         stroke-linecap="round"
