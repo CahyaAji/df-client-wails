@@ -40,16 +40,22 @@ class DFStore {
                     this.lastTimestamp === null ||
                     newTimestamp !== this.lastTimestamp
                 ) {
-                    this.data = result.data;
+                    // Apply heading offset BEFORE assigning to this.data
+                    // so Svelte triggers only ONE reactive render with the
+                    // final value — avoids the intermediate frame that shows
+                    // the raw (un-offset) heading as a glitch.
+                    const raw = result.data;
+                    const offset = signalState.currentFreq > 250
+                        ? configStore.offsetUhf
+                        : configStore.offsetVhf;
+                    console.log(
+                        "New DF data received, timestamp:", newTimestamp,
+                        "| offset:", offset,
+                        "| raw heading:", raw.heading,
+                    );
+                    raw.heading = (360 + raw.heading + offset) % 360;
+                    this.data = raw;
                     this.lastTimestamp = newTimestamp;
-                    console.log("New DF data received, timestamp:", newTimestamp);
-                    if (signalState.currentFreq > 250) {
-                        console.log("offsetUhf applied:", configStore.offsetUhf);
-                        this.data.heading = (360 + this.data.heading + configStore.offsetUhf) % 360;
-                    } else {
-                        console.log("offsetVhf applied:", configStore.offsetVhf);
-                        this.data.heading = (360 + this.data.heading + configStore.offsetVhf) % 360;
-                    }
                 } else {
                     console.log("Stale DF data detected, same timestamp:", newTimestamp);
 

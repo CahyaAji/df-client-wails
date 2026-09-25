@@ -266,12 +266,24 @@
     }
   }
 
+  // Throttle timer so updateDFLine() runs at most once per second,
+  // preventing rapid-fire redraws when dfStore mutates multiple $state
+  // fields within a single poll cycle.
+  let _dfLineThrottleTimer: ReturnType<typeof setTimeout> | null = null;
+  const DF_LINE_THROTTLE_MS = 1000;
+
   $effect(() => {
     // Re-run whenever location or DF heading changes
     locationStore.data.latitude;
     locationStore.data.longitude;
     dfStore.data;
+
+    if (_dfLineThrottleTimer) return; // throttle window still open
+
     updateDFLine();
+    _dfLineThrottleTimer = setTimeout(() => {
+      _dfLineThrottleTimer = null;
+    }, DF_LINE_THROTTLE_MS);
   });
 
   // --- End DF Heading Line ---
@@ -1067,6 +1079,10 @@
   onDestroy(() => {
     if (noticeTimer) {
       clearTimeout(noticeTimer);
+    }
+    if (_dfLineThrottleTimer) {
+      clearTimeout(_dfLineThrottleTimer);
+      _dfLineThrottleTimer = null;
     }
     if (mapResizeObserver) {
       mapResizeObserver.disconnect();

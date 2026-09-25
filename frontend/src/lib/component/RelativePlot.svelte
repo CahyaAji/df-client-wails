@@ -1,23 +1,62 @@
 <script lang="ts">
     import { dfStore } from "../store/dfStore.svelte.js";
 
-    console.log("RelativePlot, dfStore data:", dfStore.data);
-    console.log("df heading:", dfStore.data?.heading);
+    // Throttled copy of the heading so the arrow only re-renders at most
+    // once per second, regardless of how many times dfStore mutates its
+    // $state fields within a single poll cycle.
+    let displayHeading = $state<number | null>(null);
+    let _throttleTimer: ReturnType<typeof setTimeout> | null = null;
+    const THROTTLE_MS = 1000;
+
+    $effect(() => {
+        const heading = dfStore.data?.heading;
+        const hasHeading = heading !== undefined && heading !== null;
+
+        if (!hasHeading) {
+            // Data went away — clear immediately so "---" shows without delay.
+            displayHeading = null;
+            if (_throttleTimer) {
+                clearTimeout(_throttleTimer);
+                _throttleTimer = null;
+            }
+            return;
+        }
+
+        if (_throttleTimer) {
+            // A throttle window is already open; skip this update.
+            // The next poll cycle will pick up the latest value after
+            // the window closes.
+            return;
+        }
+
+        displayHeading = heading;
+        _throttleTimer = setTimeout(() => {
+            _throttleTimer = null;
+        }, THROTTLE_MS);
+
+        return () => {
+            // Cleanup when effect re-runs or component is destroyed.
+            if (_throttleTimer) {
+                clearTimeout(_throttleTimer);
+                _throttleTimer = null;
+            }
+        };
+    });
 </script>
 
 
 <div class="container">
-    {#if dfStore.data && dfStore.data.heading !== undefined && dfStore.data.heading !== null}
+    {#if displayHeading !== null}
         <div
             class="rotating-circle"
-            style="transform: rotate({dfStore.data.heading}deg);"
+            style="transform: rotate({displayHeading}deg);"
         >
             <div class="arrow"></div>
         </div>
     {/if}
     <div class="angle-text">
-        {#if dfStore.data && dfStore.data.heading !== undefined && dfStore.data.heading !== null}
-            <div>{dfStore.data.heading}</div>
+        {#if displayHeading !== null}
+            <div>{displayHeading}</div>
         {:else}
             <div>---</div>
         {/if}
