@@ -94,7 +94,7 @@ export const setFreqGainApi = async (
 
 export const readCompass = async () => {
   try {
-    const response = await ProxyGetRequest(`${API_URL}/api/compass`);
+    const response = await ProxyGetRequest(`${API_URL}/api/nav/compass`);
     const data = safeJsonParse(response, "readCompass");
     return { success: true, data: Number(data.heading) };
   } catch (error) {
@@ -103,6 +103,11 @@ export const readCompass = async () => {
       error: error instanceof Error ? error.message : String(error),
     };
   }
+  // const data = 0;
+  // if ( data === null || data === undefined) {
+  //   return { success: false, data: null, error: "Invalid default compass heading" };
+  // }
+  // return { success: true, data: Number(data) };
 };
 
 export const getDFSettings = async () => {
@@ -160,7 +165,7 @@ export const restartDf = async () => {
 
 export const readGPSExternal = async () => {
   try {
-    const response = await ProxyGetRequest(`${API_URL}/api/gps/status`);
+    const response = await ProxyGetRequest(`${API_URL}/api/nav/gps/status`);
     const json = safeJsonParse(response, "readGPSExternal");
     return { success: true, data: json.data ?? json };
   } catch (error) {
@@ -169,4 +174,10 @@ export const readGPSExternal = async () => {
       error: error instanceof Error ? error.message : String(error),
     };
   }
+  // return { success: true, data: {
+  //   lat: 0,
+  //   lng: 0,
+  //   latitude: 0,
+  //   longitude: 0
+  // } };
 };
