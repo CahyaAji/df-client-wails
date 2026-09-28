@@ -297,7 +297,7 @@
 </script>
 
 <div class="container">
-  <div style="width: 100%;">
+  <div style="width: 100%; overflow: hidden;">
     <div class="title">
       <button
         style="margin-left: 4px;"
@@ -315,7 +315,8 @@
         class="webview"
         src={`${API_URL}/config`}
         title="Status"
-        style="width: 290px; margin: auto; padding-left: 13px; height: 184px; border: none; overflow-x: hidden; background-color: rgba(4, 61, 15, 0.2);"
+        scrolling="no"
+        style="width: 290px; height: 184px; padding-left: 6px; border: none; background-color: rgba(4, 61, 15, 0.2); overflow: hidden;"
       ></iframe>
     {/if}
   </div>

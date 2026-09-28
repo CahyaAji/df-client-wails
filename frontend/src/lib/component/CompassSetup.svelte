@@ -69,7 +69,7 @@
         <div class="arrow"></div>
       </div>
     </div>
-    {#if compassStore.data && compassStore.data !== undefined && compassStore.data !== null}
+    {#if compassStore.data !== undefined && compassStore.data !== null}
       <div class="cmps-value">
         {(Math.round(compassStore.data + compassOffset) + 360) % 360}°
       </div>
