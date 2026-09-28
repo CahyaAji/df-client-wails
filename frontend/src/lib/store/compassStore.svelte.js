@@ -41,14 +41,14 @@ class CompassStore {
     if (!this.#running) return;
     await this.fetch();
     if (this.#running) {
-      this.#timer = setTimeout(() => this.#poll(), 1000);
+      this.#timer = setTimeout(() => this.#poll(), 2000);
     }
   }
 
   start() {
     if (this.#running) return;
     this.#running = true;
-    this.#timer = setTimeout(() => this.#poll(), 100);
+    this.#timer = setTimeout(() => this.#poll(), 1000);
     console.log("Compass store started");
   }
 
