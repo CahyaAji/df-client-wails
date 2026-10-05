@@ -87,7 +87,7 @@
     isBusy = true;
 
     const freq = signalState.currentFreq;
-    const antSpace = freq > 250 ? 0.25 : 0.45;
+    const antSpace = freq > 250 ? 0.23 : 0.57;
 
     try {
       const result = await setFreqGainApi({
