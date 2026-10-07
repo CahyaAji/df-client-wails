@@ -1,46 +1,52 @@
 <script lang="ts">
     import { dfStore } from "../store/dfStore.svelte.js";
 
-    // Throttled copy of the heading so the arrow only re-renders at most
-    // once per second, regardless of how many times dfStore mutates its
-    // $state fields within a single poll cycle.
+    // Throttled copy of the heading (leading + trailing edge): the first value
+    // shows immediately, and the latest value seen during the window is
+    // applied when it closes, so the arrow never stays stale.
     let displayHeading = $state<number | null>(null);
-    let _throttleTimer: ReturnType<typeof setTimeout> | null = null;
     const THROTTLE_MS = 1000;
+    let throttleTimer: ReturnType<typeof setTimeout> | null = null;
+    let pending: number | null = null;
+
+    function openWindow() {
+        throttleTimer = setTimeout(() => {
+            throttleTimer = null;
+            if (pending !== null) {
+                displayHeading = pending;
+                pending = null;
+                openWindow();
+            }
+        }, THROTTLE_MS);
+    }
 
     $effect(() => {
         const heading = dfStore.data?.heading;
-        const hasHeading = heading !== undefined && heading !== null;
 
-        if (!hasHeading) {
-            // Data went away — clear immediately so "---" shows without delay.
+        if (heading === undefined || heading === null) {
+            pending = null;
             displayHeading = null;
-            if (_throttleTimer) {
-                clearTimeout(_throttleTimer);
-                _throttleTimer = null;
+            if (throttleTimer) {
+                clearTimeout(throttleTimer);
+                throttleTimer = null;
             }
             return;
         }
 
-        if (_throttleTimer) {
-            // A throttle window is already open; skip this update.
-            // The next poll cycle will pick up the latest value after
-            // the window closes.
+        if (throttleTimer) {
+            pending = heading;
             return;
         }
 
         displayHeading = heading;
-        _throttleTimer = setTimeout(() => {
-            _throttleTimer = null;
-        }, THROTTLE_MS);
+        openWindow();
+    });
 
-        return () => {
-            // Cleanup when effect re-runs or component is destroyed.
-            if (_throttleTimer) {
-                clearTimeout(_throttleTimer);
-                _throttleTimer = null;
-            }
-        };
+    // Only clear the timer on destroy. Doing it in the effect's cleanup would
+    // cancel the throttle on every heading change.
+    $effect(() => () => {
+        if (throttleTimer) clearTimeout(throttleTimer);
+        throttleTimer = null;
     });
 </script>
 
