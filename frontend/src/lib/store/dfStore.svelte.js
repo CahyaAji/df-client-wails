@@ -45,9 +45,9 @@ class DFStore {
                     // final value — avoids the intermediate frame that shows
                     // the raw (un-offset) heading as a glitch.
                     const raw = result.data;
-                    const offset = signalState.currentFreq > 250
-                        ? configStore.offsetUhf
-                        : configStore.offsetVhf;
+                    const offset = signalState.currentFreq < 250
+                        ? configStore.offsetVhf
+                        : configStore.offsetUhf;
                     console.log(
                         "New DF data received, timestamp:", newTimestamp,
                         "| offset:", offset,
