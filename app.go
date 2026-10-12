@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -461,6 +462,17 @@ func (a *App) StartUdpListener(port int) string {
 	}()
 
 	return fmt.Sprintf("Listening on port %d", port)
+}
+
+// restartRequested makes main relaunch the executable once the app has fully
+// shut down (DB closed, UDP port released).
+var restartRequested atomic.Bool
+
+// RestartApp closes the app and opens it again.
+func (a *App) RestartApp() {
+	a.StopUdpListener()
+	restartRequested.Store(true)
+	runtime.Quit(a.ctx)
 }
 
 // StopUdpListener stops the active UDP listener.

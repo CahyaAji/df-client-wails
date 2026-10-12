@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import type { Component } from "svelte";
+  import { RestartApp } from "../wailsjs/go/main/App";
   import { locationStore } from "./lib/store/locationStore.svelte";
 
   // Both heavy components are lazy-loaded so the window opens instantly.
@@ -10,10 +11,12 @@
   let MapsComponent: Component | null = $state(null);
   let DFPanelComponent: Component | null = $state(null);
   let isMapEnabled = $state(false);
-  let dfPanelRefreshKey = $state(0);
+  let isRestarting = $state(false);
 
-  function refreshApp() {
-    dfPanelRefreshKey += 1;
+  async function restartApp() {
+    if (isRestarting) return;
+    isRestarting = true;
+    await RestartApp();
   }
 
   onMount(async () => {
@@ -36,8 +39,8 @@
       <input type="checkbox" bind:checked={isMapEnabled} />
       <span>Map</span>
     </label>
-    <button class="refresh-btn" onclick={refreshApp} aria-label="Refresh page">
-      Refresh
+    <button class="refresh-btn" onclick={restartApp} disabled={isRestarting} aria-label="Restart app">
+      {isRestarting ? "Reloading…" : "Reload"}
     </button>
   </div>
 
@@ -46,9 +49,7 @@
   {/if}
 
   {#if DFPanelComponent}
-    {#key dfPanelRefreshKey}
-      <DFPanelComponent />
-    {/key}
+    <DFPanelComponent />
   {:else}
     <div class="dfpanel-loading">Loading…</div>
   {/if}

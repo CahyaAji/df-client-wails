@@ -22,6 +22,8 @@ export function ProxyPostRequest(arg1:string,arg2:string):Promise<string>;
 
 export function ResetConfig():Promise<void>;
 
+export function RestartApp():Promise<void>;
+
 export function SelectVectorMapFile():Promise<string>;
 
 export function SendUdpNumber(arg1:number,arg2:number):Promise<string>;

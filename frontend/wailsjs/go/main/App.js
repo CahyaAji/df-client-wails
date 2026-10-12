@@ -42,6 +42,10 @@ export function ResetConfig() {
   return window['go']['main']['App']['ResetConfig']();
 }
 
+export function RestartApp() {
+  return window['go']['main']['App']['RestartApp']();
+}
+
 export function SelectVectorMapFile() {
   return window['go']['main']['App']['SelectVectorMapFile']();
 }

@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -288,6 +289,14 @@ func main() {
 	}
 	<-dbReady // ensure DB is closed cleanly on exit
 	db.Close()
+
+	if restartRequested.Load() {
+		if exe, err := os.Executable(); err == nil {
+			if err := exec.Command(exe, os.Args[1:]...).Start(); err != nil {
+				log.Println("Failed to relaunch app:", err)
+			}
+		}
+	}
 }
 
 // Logic to read from SQLite and send image back to Svelte
